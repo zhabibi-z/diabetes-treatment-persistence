@@ -26,7 +26,12 @@ required_packages <- c(
   "duckdb",       # DuckDB R driver
   "FSA",          # Dunn's test (dunnTest)
   "DescTools",    # Descriptive statistics utilities
-  "optparse"      # Command-line option parsing
+  "optparse",     # Command-line option parsing
+  # ── Added for competing risks and calibration ──────────────────────────────
+  "cmprsk",       # Fine-Gray subdistribution hazard model
+                  # Fine JP, Gray RJ. JASA. 1999;94(446):496-509.
+  "pec"           # Brier score and integrated Brier score for survival models
+                  # Gerds TA, Schumacher M. Biom J. 2006;48(6):1029-1040.
 )
 
 install_if_missing <- function(pkg) {

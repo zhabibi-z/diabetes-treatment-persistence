@@ -1,5 +1,5 @@
 """
-streamlit_app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
+app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
 
 6 tabs:
   1. Overview     — study background, citations, data flow diagram
@@ -9,7 +9,7 @@ streamlit_app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
   5. Graph        — interactive streamlit-agraph knowledge graph + Cypher queries
   6. Chatbot      — LangChain + Groq (Llama 3.3 70B) Q&A
 
-Run: streamlit run streamlit_app/app.py
+Run: streamlit run app/app.py
 """
 
 from __future__ import annotations
@@ -338,9 +338,12 @@ with tab4:
     st.header("Machine Learning — XGBoost + SHAP + UMAP")
     st.markdown(
         "**Outcome:** 1-year treatment discontinuation (binary)  "
-        "**Model:** XGBoost, 5-fold stratified CV  \n"
-        "**Note:** AUC on 30K patients is more realistic than v1.0 (5K). "
-        "A lower AUC (~0.70–0.85) reflects genuine clinical uncertainty."
+        "**Model:** XGBoost, 5-fold stratified CV, 28 features  \n"
+        "**Leakage correction:** `followup_days` removed from feature set (v2.1). "
+        "Cohort restricted to patients with ≥365-day follow-up so every patient "
+        "had a full observation window for the annual outcome. "
+        "Expected AUROC is now ~0.65–0.78, consistent with published T2DM persistence models "
+        "(Buysman et al. 2015; Pantalone et al. 2020)."
     )
 
     cv_res = load_csv("outputs/tables/ml_metrics.csv")
@@ -349,14 +352,55 @@ with tab4:
         st.dataframe(cv_res.style.format(precision=4), use_container_width=True)
         mean_row = cv_res[cv_res["split"] == "mean"]
         if not mean_row.empty:
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Mean AUROC", f"{float(mean_row['auc'].iloc[0]):.3f}")
-            col2.metric("Mean F1", f"{float(mean_row['f1'].iloc[0]):.3f}")
-            col3.metric("Mean Accuracy", f"{float(mean_row['accuracy'].iloc[0]):.3f}")
-            col4.metric("Mean Brier", f"{float(mean_row['brier'].iloc[0]):.4f}")
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            col1.metric("AUROC", f"{float(mean_row['auc'].iloc[0]):.3f}")
+            col2.metric("95% CI", (
+                f"{float(mean_row['auroc_ci_low'].iloc[0]):.3f}–"
+                f"{float(mean_row['auroc_ci_high'].iloc[0]):.3f}"
+                if "auroc_ci_low" in mean_row.columns else "—"
+            ))
+            col3.metric("F1", f"{float(mean_row['f1'].iloc[0]):.3f}")
+            col4.metric("Brier", f"{float(mean_row['brier'].iloc[0]):.4f}")
+            col5.metric("ECE", (
+                f"{float(mean_row['ece'].iloc[0]):.4f}"
+                if "ece" in mean_row.columns else "—"
+            ))
+            col6.metric("AUPRC", f"{float(mean_row['auprc'].iloc[0]):.3f}")
     else:
         st.info("ML results pending — run `bash scripts/bootstrap.sh`.")
 
+    # ── Baseline model comparison ──────────────────────────────────────────────
+    st.divider()
+    st.subheader("Model Comparison — XGBoost vs. Baselines")
+    st.caption(
+        "XGBoost must outperform logistic regression and majority-class baselines to "
+        "justify its complexity (Steyerberg et al. 2010, Ann Intern Med)."
+    )
+    comp = load_csv("outputs/tables/model_comparison.csv")
+    if comp is not None:
+        st.dataframe(
+            comp.style.highlight_max(subset=["Mean AUROC"], color="#d4f0d4")
+                      .highlight_min(subset=["Mean Brier"], color="#d4f0d4"),
+            use_container_width=True,
+        )
+    else:
+        st.info("Model comparison pending — re-run `python ml/train.py`.")
+
+    # ── Calibration curve ──────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("Calibration Curve (Reliability Diagram)")
+    st.caption(
+        "A perfectly calibrated model traces the diagonal. "
+        "ECE = expected calibration error (lower is better). "
+        "Van Calster et al. 2019, Stat Med."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        show_image("outputs/figures/calibration_curve.png", "Reliability diagram with ECE annotation")
+    with col2:
+        show_image("outputs/figures/roc_curve.png", "ROC curve with bootstrap 95% CI")
+
+    # ── SHAP ──────────────────────────────────────────────────────────────────
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
@@ -365,6 +409,26 @@ with tab4:
     with col2:
         st.subheader("SHAP Waterfall — Example Patients")
         show_image("outputs/figures/shap_force_examples.png")
+
+    # ── Fairness report ────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("Subgroup Fairness — Per-Group AUROC")
+    st.caption(
+        "AUC gaps >5 percentage points across sex or age band are flagged. "
+        "Hardt et al. 2016 (NeurIPS); FDA AI/ML-SaMD Action Plan 2021."
+    )
+    fair_df = load_csv("outputs/tables/fairness_report.csv")
+    if fair_df is not None:
+        for axis in fair_df["axis"].unique():
+            sub = fair_df[fair_df["axis"] == axis].drop(columns=["axis"])
+            st.markdown(f"**{axis.replace('_', ' ').title()}**")
+            styled = sub.style.applymap(
+                lambda v: "background-color: #ffe0e0" if v is True else "",
+                subset=["flagged"],
+            ).format({"auc": "{:.3f}", "auc_gap": "{:+.3f}", "demographic_parity_diff": "{:.4f}"})
+            st.dataframe(styled, use_container_width=True)
+    else:
+        st.info("Fairness report pending — re-run `python ml/train.py`.")
 
     st.divider()
     st.subheader("UMAP of XGBoost Leaf Embeddings")
@@ -399,41 +463,65 @@ with tab4:
                 m.load_model(str(model_path))
                 return m
             model = load_model()
-            dc_map = {"metformin": 0, "glp1": 1, "sglt2": 2}
-            dc_num = dc_map[drug_class]
-            comorbidity_count = sum([int(hypertension), int(obesity), int(ckd),
-                                     int(heart_failure), int(depression), int(nafld),
-                                     int(stroke), int(mi)])
-            drug_met  = int(drug_class == "metformin")
-            drug_glp1 = int(drug_class == "glp1")
+            # 28-feature set — followup_days excluded (leakage fix v2.1),
+            # drug_class_num excluded (collinear with one-hot triplet),
+            # sex_male excluded (collinear with sex_female).
+            comorbidity_count = sum([
+                int(hypertension), int(obesity), int(ckd),
+                int(heart_failure), int(depression), int(nafld),
+                int(stroke), int(mi),
+            ])
+            drug_met   = int(drug_class == "metformin")
+            drug_glp1  = int(drug_class == "glp1")
             drug_sglt2 = int(drug_class == "sglt2")
             feature_vals = {
-                "age_at_index": age, "age_over65": int(age >= 65),
-                "sex_female": 1, "sex_male": 0,
-                "drug_class_num": dc_num,
-                "drug_metformin": drug_met, "drug_glp1": drug_glp1, "drug_sglt2": drug_sglt2,
-                "cci": cci, "comorbidity_count": comorbidity_count,
-                "days_since_t2dm_dx": 365, "followup_days": 365,
-                "glp1_x_codx":  drug_glp1 * comorbidity_count,
-                "sglt2_x_codx": drug_sglt2 * comorbidity_count,
-                "glp1_x_cci":   drug_glp1 * cci,
-                "sglt2_x_cci":  drug_sglt2 * cci,
-                "hypertension": int(hypertension), "obesity": int(obesity),
-                "ckd": int(ckd), "heart_failure": int(heart_failure),
-                "hyperlipidemia": 0, "nash": 0, "neuropathy": 0, "retinopathy": 0,
-                "depression": int(depression), "atrial_fibrillation": 0,
-                "sleep_apnea": 0, "nafld": int(nafld), "pvd": 0,
-                "stroke": int(stroke), "mi": int(mi),
+                # Demographics
+                "age_at_index":        age,
+                "age_over65":          int(age >= 65),
+                "sex_female":          1,
+                # Drug class (one-hot only)
+                "drug_metformin":      drug_met,
+                "drug_glp1":           drug_glp1,
+                "drug_sglt2":          drug_sglt2,
+                # Comorbidity burden
+                "cci":                 cci,
+                "comorbidity_count":   comorbidity_count,
+                "days_since_t2dm_dx":  365,
+                # Interactions
+                "glp1_x_codx":         drug_glp1  * comorbidity_count,
+                "sglt2_x_codx":        drug_sglt2 * comorbidity_count,
+                "glp1_x_cci":          drug_glp1  * cci,
+                "sglt2_x_cci":         drug_sglt2 * cci,
+                # Comorbidity flags
+                "hypertension":        int(hypertension),
+                "obesity":             int(obesity),
+                "ckd":                 int(ckd),
+                "heart_failure":       int(heart_failure),
+                "hyperlipidemia":      0,
+                "nash":                0,
+                "neuropathy":          0,
+                "retinopathy":         0,
+                "depression":          int(depression),
+                "atrial_fibrillation": 0,
+                "sleep_apnea":         0,
+                "nafld":               int(nafld),
+                "pvd":                 0,
+                "stroke":              int(stroke),
+                "mi":                  int(mi),
             }
             X = _pd.DataFrame([feature_vals])
             proba = model.predict_proba(X)[0][1]
             st.metric("Estimated 1-Year Discontinuation Probability", f"{proba:.1%}")
-            if proba > 0.6:
-                st.warning("High discontinuation risk — consider adherence support intervention.")
-            elif proba > 0.4:
+            if proba > 0.60:
+                st.warning("High discontinuation risk — consider adherence support or closer follow-up.")
+            elif proba > 0.40:
                 st.info("Moderate discontinuation risk.")
             else:
-                st.success("Lower discontinuation risk.")
+                st.success("Lower discontinuation risk based on available features.")
+            st.caption(
+                "⚠ This prediction is based on synthetic Synthea data and has not been validated "
+                "on real-world patient populations. Do not use for clinical decision-making."
+            )
         else:
             st.error("Model not found — run `bash scripts/bootstrap.sh` first.")
 

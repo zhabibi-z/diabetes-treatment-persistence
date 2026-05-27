@@ -94,7 +94,7 @@ ok "Cohorts built"
 
 # ── Step 4: Propensity score matching (R) ────────────────────────
 step 4 "Propensity score matching (MatchIt / cobalt in R)"
-Rscript cohort/cohort_matching.R \
+Rscript r/cohort_matching.R \
     --input  outputs/tables/cohort_baseline.csv \
     --output outputs/tables/cohort_matched.csv \
     --figures outputs/figures
@@ -149,25 +149,51 @@ ok "Stratified KM complete"
 
 # ── Step 11: R survival + hypothesis tests ─────────────────────────
 step 11 "R survival analysis (survminer KM + forest plot)"
-Rscript analysis/survival_analysis.R \
+Rscript r/survival_analysis.R \
     --ttd-file outputs/tables/ttd_events.csv \
     --cohort   outputs/tables/cohort_matched.csv \
     --output   outputs/figures
 
 step 11b "R hypothesis tests (Shapiro-Wilk, Kruskal-Wallis, Dunn BH-FDR)"
-Rscript analysis/hypothesis_tests.R \
+Rscript r/hypothesis_tests.R \
     --ttd-file outputs/tables/ttd_events.csv \
     --cohort   outputs/tables/cohort_matched.csv \
     --output   outputs/tables
 ok "R analyses complete"
 
 # ── Step 12: Machine learning ──────────────────────────────────────
-step 12 "XGBoost + UMAP + SHAP (5-fold CV)"
+step 12 "XGBoost + UMAP + SHAP (5-fold CV, 28-feature leakage-corrected model)"
 python ml/train.py \
     --cohort     outputs/tables/cohort_matched.csv \
     --ttd-file   outputs/tables/ttd_events.csv \
     --output-dir outputs
-ok "ML training complete"
+ok "ML training complete (calibration curve + baseline comparison + fairness report)"
+
+# ── Step 12b: IPTW sensitivity analysis ────────────────────────────
+step "12b" "Stabilised IPTW sensitivity analysis (Hernan & Robins 2020)"
+python analysis/run_iptw.py \
+    --cohort     outputs/tables/cohort_matched.csv \
+    --ttd-file   outputs/tables/ttd_events.csv \
+    --output-dir outputs
+ok "IPTW complete — weights, balance table, weight distribution plot"
+
+# ── Step 12c: Patient attrition CONSORT diagram ────────────────────
+step "12c" "Patient attrition CONSORT flow diagram (Schulz et al. BMJ 2010)"
+python analysis/run_attrition.py \
+    --db-path        "${OMOP_DB_PATH:-data/omop/omop.duckdb}" \
+    --cohort-baseline outputs/tables/cohort_baseline.csv \
+    --cohort-matched  outputs/tables/cohort_matched.csv \
+    --ttd-file        outputs/tables/ttd_events.csv \
+    --output-dir      outputs
+ok "Attrition diagram saved → outputs/figures/attrition_diagram.png"
+
+# ── Step 12d: Negative control outcome analysis ────────────────────
+step "12d" "Negative control outcome analysis (Lipsitch 2010; Schuemie 2018)"
+python analysis/run_negative_control.py \
+    --db-path        "${OMOP_DB_PATH:-data/omop/omop.duckdb}" \
+    --cohort-matched outputs/tables/cohort_matched.csv \
+    --output-dir     outputs
+ok "Negative control results → outputs/tables/negative_control_results.csv"
 
 # ── Step 13: Knowledge graph ───────────────────────────────────────
 step 13 "Knowledge graph (NetworkX → Cypher)"
@@ -192,5 +218,5 @@ echo "  Report:  outputs/study_report.txt"
 echo ""
 echo "  To launch the dashboard:"
 echo "    source venv/bin/activate"
-echo "    streamlit run streamlit_app/app.py"
+echo "    streamlit run app/app.py"
 echo "============================================================"
