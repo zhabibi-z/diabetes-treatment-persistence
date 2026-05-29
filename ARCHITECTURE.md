@@ -21,7 +21,7 @@ It operates in two modes:
 | Mode | Entry Point | Purpose |
 |---|---|---|
 | **Batch** | `bash scripts/bootstrap.sh` | End-to-end pipeline: ETL → cohort → analysis → ML → outputs |
-| **Serving** | `docker compose up api app` | FastAPI inference service + Streamlit dashboard |
+| **Serving** | `docker compose -f docker/docker-compose.yml up api app` | FastAPI inference service + Streamlit dashboard |
 
 The pipeline produces all outputs; the serving layer consumes them. These are intentionally decoupled — the API and dashboard are read-only consumers of files written by the pipeline.
 
@@ -389,7 +389,7 @@ ML.FEATURE_COLS        # 28-element tuple — single source of truth for
 | `MLFLOW_TRACKING_URI` | No | Remote MLflow server URI (defaults to local `./mlruns/`) |
 | `NEO4J_USER` / `NEO4J_PASSWORD` | No (Neo4j only) | Graph DB credentials |
 
-Copy `.env.template` → `.env` and populate before running.
+Copy `config/.env.template` → `.env` and populate before running.
 
 ---
 
@@ -401,9 +401,15 @@ Copy `.env.template` → `.env` and populate before running.
 ├── pyproject.toml              # ruff + pytest configuration
 ├── requirements.txt            # Runtime dependencies (pinned)
 ├── requirements-dev.txt        # Dev dependencies: jupyter, ruff, pytest
-├── Dockerfile.api              # FastAPI container
-├── Dockerfile.app              # Streamlit container
-├── docker-compose.yml          # api + app + neo4j services
+│
+├── config/
+│   └── .env.template           # Environment variable reference (copy → .env)
+│
+├── docker/
+│   ├── docker-compose.yml      # api + app + neo4j services
+│   ├── Dockerfile.api          # FastAPI container (python:3.11-slim-bookworm)
+│   └── Dockerfile.app          # Streamlit container (python:3.11-slim-bookworm)
+├── .dockerignore               # Build context exclusions (must stay at root)
 │
 ├── src/
 │   ├── api/                    # REST inference service (FastAPI)

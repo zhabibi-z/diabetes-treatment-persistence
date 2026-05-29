@@ -1,17 +1,20 @@
 version: "3.9"
 
 # Full stack: FastAPI inference service + Streamlit dashboard + optional Neo4j.
-# Quick start:
-#   docker compose up               # all services
-#   docker compose up neo4j         # graph DB only
-#   docker compose up api app       # inference + dashboard only
+# Run from repo root:
+#   docker compose -f docker/docker-compose.yml up               # all services
+#   docker compose -f docker/docker-compose.yml up neo4j         # graph DB only
+#   docker compose -f docker/docker-compose.yml up api app       # inference + dashboard only
+#
+# Required env vars (copy config/.env.template → .env):
+#   NEO4J_USER, NEO4J_PASSWORD
 
 services:
 
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.api
+      context: ..
+      dockerfile: docker/Dockerfile.api
     container_name: t2dm_api
     ports:
       - "8000:8000"
@@ -19,8 +22,8 @@ services:
       OMOP_DB_PATH:    /data/omop/omop.duckdb
       ALLOWED_ORIGINS: "http://localhost:8501,http://app:8501"
     volumes:
-      - ./outputs:/app/outputs:ro
-      - ./data:/app/data:ro
+      - ../outputs:/app/outputs:ro
+      - ../data:/app/data:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
       interval: 30s
@@ -30,15 +33,15 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile.app
+      context: ..
+      dockerfile: docker/Dockerfile.app
     container_name: t2dm_dashboard
     ports:
       - "8501:8501"
     environment:
       API_BASE_URL: "http://api:8000"
     volumes:
-      - ./outputs:/app/outputs:ro
+      - ../outputs:/app/outputs:ro
     depends_on:
       api:
         condition: service_healthy
@@ -51,13 +54,13 @@ services:
       - "7474:7474"   # HTTP browser
       - "7687:7687"   # Bolt
     environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-t2dm_password}
+      NEO4J_AUTH: "${NEO4J_USER}/${NEO4J_PASSWORD}"
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
-      - ./src/graph/cypher_export:/var/lib/neo4j/import
+      - ../src/graph/cypher_export:/var/lib/neo4j/import
     healthcheck:
       test: ["CMD", "neo4j", "status"]
       interval: 30s

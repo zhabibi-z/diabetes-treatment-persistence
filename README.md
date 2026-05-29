@@ -110,7 +110,7 @@ src/app/app.py              6-tab interactive dashboard (interactive graph: stre
 cd t2dm-persistence-rwe
 
 # Copy and fill environment variables
-cp .env.template .env
+cp config/.env.template .env
 # edit .env: add GROQ_API_KEY (free at console.groq.com)
 
 # Run full pipeline
