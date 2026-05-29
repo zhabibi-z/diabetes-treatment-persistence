@@ -11,12 +11,11 @@ __pycache__/
 data/synthea_output/
 data/omop/*.duckdb
 data/omop/*.db
+outputs/study_report.txt
+# Model binaries excluded — exceptions below commit only the two Streamlit-needed files
 outputs/models/*.pkl
 outputs/models/*.json
 outputs/models/*.ubj
-outputs/figures/
-outputs/tables/
-outputs/study_report.txt
 
 # R
 .Rhistory

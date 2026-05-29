@@ -1,0 +1,5 @@
+Model,Mean AUROC,SD AUROC,95% CI,Mean AUPRC,Mean Brier
+Logistic Regression,0.56,0.005,—,0.478,0.2403
+XGBoost (primary),0.558,—,0.551–0.565,0.476,0.2413
+Stratified Random,0.505,0.007,—,0.421,0.4822
+Majority Class,0.5,0.0,—,0.419,0.4187

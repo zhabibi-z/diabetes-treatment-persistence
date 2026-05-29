@@ -1,0 +1,10 @@
+axis,group,auc,auc_gap,flagged,demographic_parity_diff,overall_auc
+sex,Male,0.5544,-0.004,False,0.0,0.5585
+sex,Female,0.5625,0.0041,False,0.0,0.5585
+age_band,75+,0.5378,-0.0206,False,0.0004,0.5585
+age_band,45–64,0.5547,-0.0038,False,0.0004,0.5585
+age_band,18–44,0.5591,0.0007,False,0.0004,0.5585
+age_band,65–74,0.5714,0.0129,False,0.0004,0.5585
+drug_class,metformin,0.557,-0.0014,False,0.0003,0.5585
+drug_class,glp1,0.56,0.0016,False,0.0003,0.5585
+drug_class,sglt2,0.5618,0.0034,False,0.0003,0.5585

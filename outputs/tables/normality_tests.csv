@@ -1,0 +1,4 @@
+drug_class,n,shapiro_wilk_p,ks_lilliefors_p,normal
+metformin,17928,NA,0,FALSE
+sglt2,6117,NA,0,FALSE
+glp1,5955,NA,0,FALSE
