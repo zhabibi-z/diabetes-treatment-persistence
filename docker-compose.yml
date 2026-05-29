@@ -1,10 +1,49 @@
 version: "3.9"
 
-# Optional: spin up Neo4j for the knowledge graph module.
-# Usage: docker compose up -d neo4j
-# The graph module can also run without Neo4j using NetworkX only.
+# Full stack: FastAPI inference service + Streamlit dashboard + optional Neo4j.
+# Quick start:
+#   docker compose up               # all services
+#   docker compose up neo4j         # graph DB only
+#   docker compose up api app       # inference + dashboard only
 
 services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: t2dm_api
+    ports:
+      - "8000:8000"
+    environment:
+      OMOP_DB_PATH:    /data/omop/omop.duckdb
+      ALLOWED_ORIGINS: "http://localhost:8501,http://app:8501"
+    volumes:
+      - ./outputs:/app/outputs:ro
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: t2dm_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      API_BASE_URL: "http://api:8000"
+    volumes:
+      - ./outputs:/app/outputs:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   neo4j:
     image: neo4j:5.15-community
     container_name: t2dm_neo4j
@@ -18,12 +57,13 @@ services:
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
-      - ./graph/cypher_export:/var/lib/neo4j/import
+      - ./src/graph/cypher_export:/var/lib/neo4j/import
     healthcheck:
       test: ["CMD", "neo4j", "status"]
       interval: 30s
       timeout: 10s
       retries: 5
+    restart: unless-stopped
 
 volumes:
   neo4j_data:

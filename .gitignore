@@ -14,6 +14,9 @@ data/omop/*.db
 outputs/models/*.pkl
 outputs/models/*.json
 outputs/models/*.ubj
+outputs/figures/
+outputs/tables/
+outputs/study_report.txt
 
 # R
 .Rhistory
@@ -36,6 +39,19 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# MLflow local tracking store
+mlruns/
+mlartifacts/
+
+# Pytest cache
+.pytest_cache/
+
+# Build / packaging
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # Streamlit
 .streamlit/secrets.toml

@@ -40,7 +40,7 @@ class Paths:
     figures:         Path = ROOT / "outputs" / "figures"
     models:          Path = ROOT / "outputs" / "models"
     logs:            Path = ROOT / "logs"
-    graph_export:    Path = ROOT / "graph" / "cypher_export"
+    graph_export:    Path = ROOT / "src" / "graph" / "cypher_export"
 
     # Derived outputs — cohort
     cohort_baseline: Path = field(default_factory=lambda: ROOT / "outputs" / "tables" / "cohort_baseline.csv")

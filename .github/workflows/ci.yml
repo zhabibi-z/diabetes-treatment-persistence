@@ -36,15 +36,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install ruff pytest
+          pip install -r requirements-dev.txt
 
       - name: Lint with ruff
-        run: |
-          ruff check src/ config.py \
-            --select E,W,F,I \
-            --ignore E501,W503 \
-            --output-format github
+        run: ruff check src/ config.py --output-format github
 
       - name: Run unit tests
         run: |

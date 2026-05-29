@@ -1,0 +1,28 @@
+[project]
+name            = "t2dm-persistence-rwe"
+version         = "2.0.0"
+description     = "Comparative treatment persistence in T2DM — RWE pipeline, inference API, and dashboard"
+requires-python = ">=3.11"
+license         = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths       = ["tests"]
+python_files    = ["test_*.py"]
+python_classes  = ["Test*"]
+python_functions= ["test_*"]
+addopts         = "-v --tb=short"
+filterwarnings  = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select  = ["E", "W", "F", "I"]
+ignore  = ["E501", "W503"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "api", "ml"]

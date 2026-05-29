@@ -27,7 +27,9 @@ once at startup via the lifespan context manager to avoid per-request I/O.
 from __future__ import annotations
 
 import logging
+import os
 import pickle
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
@@ -38,6 +40,10 @@ import xgboost as xgb
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+# config.py lives at repo root; add it to path when running from src/
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+from config import PATHS, ML
 from api.schemas import (
     DrugGraphContext,
     HealthResponse,
@@ -50,11 +56,18 @@ from api.schemas import (
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-MODEL_PATH   = Path("outputs/models/xgb_discontinuation.pkl")
-KM_DATA_PATH = Path("outputs/tables/ttd_summary.csv")
-COX_TTD_PATH = Path("outputs/tables/cox_ttd_results.csv")
-TTD_PATH     = Path("outputs/tables/ttd_events.csv")
+MODEL_PATH    = PATHS.xgb_model_pkl
+COX_TTD_PATH  = PATHS.cox_results_r
+TTD_PATH      = PATHS.ttd_events
 MODEL_VERSION = "xgb-v2.0-28feat"
+
+_FEATURE_NAMES: list[str] = list(ML.FEATURE_COLS)
+
+_ALLOWED_ORIGINS: list[str] = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:8501").split(",")
+    if o.strip()
+]
 
 DRUG_DISPLAY = {"metformin": "Metformin", "glp1": "GLP-1 RA", "sglt2": "SGLT-2i"}
 
@@ -136,9 +149,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -310,19 +323,10 @@ def _get_top_shap_drivers(features: np.ndarray, top_n: int = 3) -> list[str]:
     """Return the names of the top_n SHAP contributors for this patient."""
     try:
         import shap
-        feature_names = [
-            "age_at_index", "age_over65", "sex_female",
-            "drug_metformin", "drug_glp1", "drug_sglt2",
-            "cci", "comorbidity_count", "days_since_t2dm_dx",
-            "glp1_x_codx", "sglt2_x_codx", "glp1_x_cci", "sglt2_x_cci",
-            "hypertension", "obesity", "ckd", "heart_failure", "hyperlipidemia",
-            "nash", "neuropathy", "retinopathy", "depression",
-            "atrial_fibrillation", "sleep_apnea", "nafld", "pvd", "stroke", "mi",
-        ]
         explainer = shap.TreeExplainer(state.model)
         sv = explainer.shap_values(features)[0]
         top_idx = np.argsort(np.abs(sv))[::-1][:top_n]
-        return [feature_names[i] for i in top_idx if i < len(feature_names)]
+        return [_FEATURE_NAMES[i] for i in top_idx if i < len(_FEATURE_NAMES)]
     except Exception:
         return []
 
