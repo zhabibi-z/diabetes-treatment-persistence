@@ -40,8 +40,8 @@ import xgboost as xgb
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-# config.py lives at repo root; add it to path when running from src/
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+# config.py lives in src/; add src/ to path so all subpackages can import it
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config import PATHS, ML
 from api.schemas import (

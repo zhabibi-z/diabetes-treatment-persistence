@@ -420,7 +420,7 @@ def _mlflow_setup() -> None:
     if not _MLFLOW_AVAILABLE:
         return
     try:
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+        sys.path.insert(0, str(Path(__file__).parent.parent))
         from config import MLFLOW as MLFLOW_CFG
         mlflow.set_tracking_uri(MLFLOW_CFG.tracking_uri)
         mlflow.set_experiment(MLFLOW_CFG.experiment_name)

@@ -214,7 +214,7 @@ FastAPI :8000         ───────────────────�
                                                 Tab 5: Graph
                                                 Tab 6: Chatbot
 
-PROTOCOL.md + README.md + outputs/tables/*.csv
+docs/PROTOCOL.md + README.md + outputs/tables/*.csv
   └──► FAISS vectorstore (sentence-transformers/all-MiniLM-L6-v2)
          └──► LangChain retriever
                 └──► Groq API (Llama 3.3 70B)
@@ -277,7 +277,7 @@ PROTOCOL.md + README.md + outputs/tables/*.csv
 │  │  Llama 3.3 70B  │                     │  :7474 / :7687   │   │
 │  │                 │                     │                  │   │
 │  │  RAG over:      │                     │  Import from:    │   │
-│  │  PROTOCOL.md    │                     │  nodes.cypher    │   │
+│  │  docs/PROTOCOL.md│                     │  nodes.cypher    │   │
 │  │  README.md      │                     │  edges.cypher    │   │
 │  │  outputs/tables │                     │                  │   │
 │  │  omop.duckdb    │                     │  Fallback:       │   │
@@ -366,7 +366,7 @@ The chatbot uses three RAG channels: FAISS semantic retrieval over study documen
 
 ## 7. Configuration & Environment
 
-All pipeline constants flow from `config.py`. No script hardcodes a path or hyperparameter.
+All pipeline constants flow from `src/config.py`. No script hardcodes a path or hyperparameter.
 
 ```python
 # Single import pattern used across all scripts
@@ -397,7 +397,7 @@ Copy `config/.env.template` → `.env` and populate before running.
 
 ```
 .
-├── config.py                   # All constants, paths, hyperparameters
+
 ├── pyproject.toml              # ruff + pytest configuration
 ├── requirements.txt            # Runtime dependencies (pinned)
 ├── requirements-dev.txt        # Dev dependencies: jupyter, ruff, pytest
@@ -412,6 +412,7 @@ Copy `config/.env.template` → `.env` and populate before running.
 ├── .dockerignore               # Build context exclusions (must stay at root)
 │
 ├── src/
+│   ├── config.py               # All constants, paths, hyperparameters
 │   ├── api/                    # REST inference service (FastAPI)
 │   │   ├── main.py             # Endpoints, lifespan model loading
 │   │   └── schemas.py          # Pydantic request/response models
@@ -446,8 +447,11 @@ Copy `config/.env.template` → `.env` and populate before running.
 │   └── figures/                # PNG plots (gitignored)
 │
 ├── .github/workflows/ci.yml    # Python 3.11 lint + test, R 4.3 package check
-├── PROTOCOL.md                 # Pre-specified study protocol (STaRT-RWE)
-└── ARCHITECTURE.md             # This document
+├── docs/
+│   ├── ARCHITECTURE.md         # System design and data flow
+│   ├── PROTOCOL.md             # Pre-specified study protocol (STaRT-RWE)
+│   └── CHANGELOG.md
+
 ```
 
 ---

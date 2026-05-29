@@ -21,8 +21,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).parent.parent.parent   # repo root — for os.chdir and output paths
+sys.path.insert(0, str(Path(__file__).parent.parent))  # src/ — for config import
 os.chdir(ROOT)
 
 st.set_page_config(
