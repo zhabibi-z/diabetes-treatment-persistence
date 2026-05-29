@@ -98,7 +98,7 @@ cohort_matching.R           1:5 PS matching (MatchIt, caliper=0.2 SD), balance (
     └── chatbot.py          LangChain + Groq Llama 3.3 70B + RAG
     │
     ▼
-streamlit_app/app.py        6-tab interactive dashboard (interactive graph: streamlit-agraph)
+src/app/app.py              6-tab interactive dashboard (interactive graph: streamlit-agraph)
 ```
 
 ---
