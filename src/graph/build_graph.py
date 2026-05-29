@@ -206,7 +206,7 @@ def export_cypher(G: nx.DiGraph, output_dir: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build T2DM knowledge graph")
     parser.add_argument("--cohort",      default="outputs/tables/cohort_matched.csv")
-    parser.add_argument("--comorbidity", default="cohort/codx_mapping.xlsx")
+    parser.add_argument("--comorbidity", default="data/reference/codx_mapping.xlsx")
     parser.add_argument("--output-dir",  default="graph/cypher_export")
     parser.add_argument("--corr",        default="outputs/tables/correlations.csv")
     parser.add_argument("--cox-ttc",     default="outputs/tables/cox_ttc_results.csv")
