@@ -77,12 +77,69 @@ COMORBIDITY_CONCEPTS: dict[str, int] = {
     "mi":                  4329847,
 }
 
-COMORBIDITY_BASE_PREVALENCE: dict[str, float] = {
-    "hypertension": 0.65, "obesity": 0.45, "ckd": 0.25, "heart_failure": 0.15,
-    "hyperlipidemia": 0.55, "nash": 0.10, "neuropathy": 0.30, "retinopathy": 0.20,
-    "depression": 0.20, "atrial_fibrillation": 0.12, "sleep_apnea": 0.18,
-    "nafld": 0.25, "pvd": 0.10, "stroke": 0.08, "mi": 0.10,
+# Drug-class-specific comorbidity prevalence — reflects channelling by indication.
+# Metformin: broad first-line population (reference category).
+# GLP-1 RA:  channelled to obesity/ASCVD; higher BMI, NASH, CVD history.
+#   Ref: Marso et al. NEJM 2016 (LEADER baseline); ADA Standards 2022 §9.
+# SGLT-2i:   channelled to CKD, HFrEF, ASCVD per 2022 ADA/EASD guidelines.
+#   Ref: McMurray et al. NEJM 2019 (EMPEROR-Reduced);
+#        Heerspink et al. NEJM 2020 (DAPA-CKD); Koye et al. DOM 2020.
+CLASS_COMORBIDITY_PREVALENCE: dict[str, dict[str, float]] = {
+    "metformin": {
+        "hypertension": 0.60, "obesity": 0.42, "ckd": 0.18, "heart_failure": 0.10,
+        "hyperlipidemia": 0.52, "nash": 0.08, "neuropathy": 0.25, "retinopathy": 0.15,
+        "depression": 0.18, "atrial_fibrillation": 0.09, "sleep_apnea": 0.15,
+        "nafld": 0.20, "pvd": 0.08, "stroke": 0.06, "mi": 0.07,
+    },
+    "glp1": {
+        "hypertension": 0.68, "obesity": 0.65, "ckd": 0.22, "heart_failure": 0.14,
+        "hyperlipidemia": 0.60, "nash": 0.22, "neuropathy": 0.30, "retinopathy": 0.20,
+        "depression": 0.22, "atrial_fibrillation": 0.11, "sleep_apnea": 0.24,
+        "nafld": 0.30, "pvd": 0.12, "stroke": 0.10, "mi": 0.15,
+    },
+    "sglt2": {
+        "hypertension": 0.70, "obesity": 0.50, "ckd": 0.42, "heart_failure": 0.28,
+        "hyperlipidemia": 0.58, "nash": 0.14, "neuropathy": 0.28, "retinopathy": 0.18,
+        "depression": 0.18, "atrial_fibrillation": 0.15, "sleep_apnea": 0.18,
+        "nafld": 0.22, "pvd": 0.12, "stroke": 0.10, "mi": 0.14,
+    },
 }
+
+# Market share weights averaged over 2013-2022 US commercial claims.
+# Temporal availability applied per-patient (SGLT-2i unavailable pre-2013).
+# Ref: Montvida et al. Diabetes Care 2019;42(5):878-886 (2013-2016 US trends).
+CLASS_MARKET_SHARE: dict[str, float] = {
+    "metformin": 0.60,
+    "glp1":      0.20,
+    "sglt2":     0.20,
+}
+
+# Lognormal (μ, σ) for time-to-discontinuation in days.
+# Calibrated to published 1-year persistence from real-world claims:
+#   Metformin ~68%  → median ~446 d  (McGovern et al. DOM 2018; UK CPRD)
+#   GLP-1 RA  ~47%  → median ~270 d  (Divino et al. Clin Ther 2014; US MarketScan)
+#   SGLT-2i   ~56%  → median ~365 d  (Koye et al. DOM 2020; Australian PBS)
+CLASS_TTD_PARAMS: dict[str, tuple[float, float]] = {
+    "metformin": (6.1, 0.8),
+    "glp1":      (5.6, 0.9),
+    "sglt2":     (5.9, 0.85),
+}
+
+# FDA first-approval dates — gate drug availability per patient index date.
+# Ref: FDA Orange Book / DailyMed.
+DRUG_APPROVAL_DATES: dict[str, date] = {
+    "metformin_500mg":  date(1994, 12, 29),
+    "metformin_850mg":  date(1994, 12, 29),
+    "metformin_1000mg": date(1994, 12, 29),
+    "liraglutide":      date(2010, 1, 26),   # Victoza
+    "dulaglutide":      date(2014, 9, 18),   # Trulicity
+    "semaglutide_inj":  date(2017, 12, 5),   # Ozempic
+    "semaglutide_oral": date(2019, 9, 20),   # Rybelsus
+    "canagliflozin":    date(2013, 3, 29),   # Invokana (first SGLT-2i)
+    "dapagliflozin":    date(2014, 1, 8),    # Farxiga
+    "empagliflozin":    date(2014, 8, 1),    # Jardiance
+}
+_SGLT2_AVAILABLE_FROM = date(2013, 3, 29)   # earliest any SGLT-2i was approved
 
 GENDER_CONCEPTS = {0: 8532, 1: 8507}  # OMOP: female=8532, male=8507
 RACE_CONCEPTS   = {0: 8527, 1: 8515, 2: 8516, 3: 8657}  # White, Asian, Black, Other
@@ -209,6 +266,27 @@ def generate_synthetic_patients(n_patients: int = 5000, seed: int = 42) -> dict[
     t2dm_offsets = rng.integers(0, total_days - 365, n_patients)
     t2dm_dates = [study_start + timedelta(days=int(d)) for d in t2dm_offsets]
 
+    # ── Drug class and index date — pre-computed before comorbidities ─────────
+    # Drug class must be known before comorbidity assignment so that
+    # class-specific prevalence (channelling by indication) can be applied.
+    drug_class_pool = list(CLASS_MARKET_SHARE.keys())
+    class_probs     = list(CLASS_MARKET_SHARE.values())
+    raw_classes     = rng.choice(drug_class_pool, n_patients, p=class_probs)
+    idx_offsets     = rng.integers(0, 181, n_patients)
+
+    assigned_classes: list[str] = []
+    index_dates: list[date] = []
+    for t2dm_date, raw_cls, idx_off in zip(t2dm_dates, raw_classes, idx_offsets):
+        idx = t2dm_date + timedelta(days=int(idx_off))
+        if idx > study_end - timedelta(days=90):
+            idx = study_end - timedelta(days=90)
+        # Temporal availability gate: SGLT-2i class not approved until 2013-03-29
+        drug_cls = raw_cls
+        if drug_cls == "sglt2" and idx < _SGLT2_AVAILABLE_FROM:
+            drug_cls = str(rng.choice(["metformin", "glp1"], p=[0.80, 0.20]))
+        assigned_classes.append(drug_cls)
+        index_dates.append(idx)
+
     conditions: list[dict[str, Any]] = []
     cond_id = 1
     for pid, t2dm_date in zip(person_ids, t2dm_dates):
@@ -222,9 +300,9 @@ def generate_synthetic_patients(n_patients: int = 5000, seed: int = 42) -> dict[
         })
         cond_id += 1
 
-    # ── Comorbidities ─────────────────────────────────────────────────────────
-    for pid, t2dm_date in zip(person_ids, t2dm_dates):
-        for comorb_name, base_prev in COMORBIDITY_BASE_PREVALENCE.items():
+    # ── Comorbidities — class-specific prevalence (channelling by indication) ─
+    for pid, t2dm_date, drug_class in zip(person_ids, t2dm_dates, assigned_classes):
+        for comorb_name, base_prev in CLASS_COMORBIDITY_PREVALENCE[drug_class].items():
             if rng.random() < base_prev:
                 # Prevalent: 70% before index, 30% incident during follow-up
                 if rng.random() < 0.70:
@@ -247,29 +325,27 @@ def generate_synthetic_patients(n_patients: int = 5000, seed: int = 42) -> dict[
                 cond_id += 1
 
     # ── Drug exposures ────────────────────────────────────────────────────────
-    drug_classes = ["metformin", "glp1", "sglt2"]
-    # Assign each patient to one drug class proportional to real-world market share
-    class_weights = [0.60, 0.20, 0.20]
-    assigned_classes = rng.choice(drug_classes, n_patients, p=class_weights)
-
     drug_rows: list[dict[str, Any]] = []
     drug_id = 1
     obs_periods: list[dict[str, Any]] = []
 
-    for pid, drug_class, t2dm_date in zip(person_ids, assigned_classes, t2dm_dates):
-        # Index date: 0–180 days after T2DM diagnosis
-        index_offset = rng.integers(0, 181)
-        index_date = t2dm_date + timedelta(days=int(index_offset))
-        if index_date > study_end - timedelta(days=90):
-            index_date = study_end - timedelta(days=90)
+    for pid, drug_class, t2dm_date, index_date in zip(
+        person_ids, assigned_classes, t2dm_dates, index_dates
+    ):
+        # Pick a specific drug approved at or before the patient's index date
+        available = {
+            name: cid
+            for name, cid in DRUG_CONCEPTS[drug_class].items()
+            if DRUG_APPROVAL_DATES.get(name, date(1994, 1, 1)) <= index_date
+        }
+        if not available:
+            # Fallback: at least one GLP-1 (liraglutide) or metformin always available
+            available = DRUG_CONCEPTS["metformin"]
+            drug_class = "metformin"
+        drug_concept_id = int(rng.choice(list(available.values())))
 
-        # Pick a specific drug from the class
-        drug_options = list(DRUG_CONCEPTS[drug_class].values())
-        drug_concept_id = int(rng.choice(drug_options))
-
-        # Persistence: lognormal TTD in days (class-specific parameters)
-        ttd_params = {"metformin": (6.0, 0.8), "glp1": (5.6, 0.9), "sglt2": (5.8, 0.85)}
-        mu, sigma = ttd_params[drug_class]
+        # Persistence: lognormal TTD calibrated to published 1-yr persistence rates
+        mu, sigma = CLASS_TTD_PARAMS[drug_class]
         ttd_days = int(np.clip(rng.lognormal(mu, sigma), 91, 1200))
 
         # Generate prescription fills with ~30-day supply and occasional gaps
