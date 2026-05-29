@@ -41,7 +41,7 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check ml/ analysis/ api/ chatbot/ etl/ cohort/ graph/ config.py \
+          ruff check src/ config.py \
             --select E,W,F,I \
             --ignore E501,W503 \
             --output-format github
@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ hashFiles('r/install_r_packages.R') }}
+          key: ${{ runner.os }}-r-${{ hashFiles('src/r/install_r_packages.R') }}
           restore-keys: |
             ${{ runner.os }}-r-
 
@@ -88,4 +88,4 @@ jobs:
             libjpeg-dev
 
       - name: Install R packages
-        run: Rscript r/install_r_packages.R
+        run: Rscript src/r/install_r_packages.R

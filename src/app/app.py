@@ -1,5 +1,5 @@
 """
-app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
+src/app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
 
 6 tabs:
   1. Overview     — study background, citations, data flow diagram
@@ -9,7 +9,7 @@ app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
   5. Graph        — interactive streamlit-agraph knowledge graph + Cypher queries
   6. Chatbot      — LangChain + Groq (Llama 3.3 70B) Q&A
 
-Run: streamlit run app/app.py
+Run: streamlit run src/app/app.py
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 

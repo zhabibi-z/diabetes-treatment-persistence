@@ -9,9 +9,18 @@ and to the function where state isolation is required.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+
+# Make src/ and src/ml/ available to all tests so imports resolve correctly
+# after the source tree was moved into src/.
+_SRC = Path(__file__).parent.parent / "src"
+sys.path.insert(0, str(_SRC))
+sys.path.insert(0, str(_SRC / "ml"))
 
 
 # ── Reproducibility ───────────────────────────────────────────────────────────

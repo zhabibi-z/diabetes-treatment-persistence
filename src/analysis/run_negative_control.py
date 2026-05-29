@@ -63,7 +63,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import chi2
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import PATHS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")

@@ -8,14 +8,10 @@ Each test is anchored to the methodological reference in evaluation.py's docstri
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
 from evaluation import (
     bootstrap_auroc_ci,
     expected_calibration_error,

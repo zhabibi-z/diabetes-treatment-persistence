@@ -8,15 +8,10 @@ corresponds to a methodological requirement documented in ml/train.py.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 
-# Resolve import path so tests can run from the repo root without install
-sys.path.insert(0, str(Path(__file__).parent.parent / "ml"))
 from train import build_features, MIN_FOLLOWUP_DAYS, COMORBIDITY_COLS
 
 
