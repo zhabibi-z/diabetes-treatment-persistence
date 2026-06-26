@@ -58,7 +58,7 @@ def load_csv(path: str, default_cols: list[str] | None = None) -> pd.DataFrame |
 def show_image(path: str, caption: str = "", width: int | None = None) -> None:
     p = Path(path)
     if p.exists():
-        st.image(str(p), caption=caption, use_column_width=(width is None))
+        st.image(str(p), caption=caption, use_container_width=(width is None))
     else:
         st.info(f"Figure not yet generated: `{path}`\nRun `bash scripts/bootstrap.sh` to produce outputs.")
 
