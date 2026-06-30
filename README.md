@@ -4,7 +4,7 @@
 **Version:** v2.0 (30,000 patients)  
 **Status:** Active — synthetic data validation  
 **Data:** 30,000 synthetic patients, OMOP CDM v5.4 (no real PHI)  
-**Live Demo:** *(deploy to Streamlit Community Cloud — link here after deployment)*
+**Live Demo:** https://t2dm-persistence-rwe.streamlit.app/
 
 ---
 
