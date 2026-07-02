@@ -52,7 +52,7 @@ The study uses a **new-user active-comparator design** (Schneeweiss 2007, Lund 2
 >
 > **Expected real-world performance:** Without the `followup_days` leakage, and with non-deterministic prescribing behavior in real claims data, expected AUC for 1-year T2DM treatment discontinuation prediction is **0.70–0.80**. See notebook 04 (`04_ml_xgboost_shap.ipynb`) for the full ablation study and permutation importance analysis.
 
-> All results are from synthetic patients only. No real PHI.
+> All results are from synthetic patients only.
 
 ---
 
