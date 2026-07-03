@@ -576,81 +576,78 @@ with tab5:
         nodes: list[Node] = []
         edges: list[Edge] = []
 
-        # Drug nodes (blue)
+        # Emphasis multiplier for the "Highlight node type" control.
+        def _emph(t: str) -> float:
+            if highlight_type == "All":
+                return 1.0
+            return 1.4 if highlight_type == t else 0.8
+
+        # Drug nodes — boxes, left column (level 0)
         drug_labels = {"metformin": "Metformin\n(Reference)", "glp1": "GLP-1 RA", "sglt2": "SGLT-2i"}
+        drug_colors = {"metformin": "#3498DB", "glp1": "#E74C3C", "sglt2": "#2ECC71"}
         for dc in ["metformin", "glp1", "sglt2"]:
-            color = "#3498DB" if dc == "metformin" else ("#E74C3C" if dc == "glp1" else "#2ECC71")
-            size = 30 if (highlight_type == "DrugClass" or highlight_type == "All") else 20
             nodes.append(Node(
-                id=dc,
-                label=drug_labels[dc],
-                size=size,
-                color=color,
-                title=f"Type: DrugClass\nClass: {dc}\nRole: {'Reference' if dc=='metformin' else 'Comparator'}",
-                font={"size": 14, "bold": True},
+                id=dc, label=drug_labels[dc], level=0, shape="box",
+                size=26 * _emph("DrugClass"), color=drug_colors[dc],
+                font={"size": 15, "color": "#FFFFFF", "bold": True},
+                title=f"Drug class: {dc}  ·  {'Reference' if dc=='metformin' else 'Active comparator'}",
             ))
 
-        # Comorbidity nodes (orange)
+        # Comorbidity nodes — dots, middle column (level 1); size ∝ |Pearson r| with TTD
         corr_df = load_csv("outputs/tables/correlations.csv")
-        corr_map = {}
+        corr_map, padj_map = {}, {}
         if corr_df is not None and "comorbidity" in corr_df.columns:
             corr_map = dict(zip(corr_df["comorbidity"], corr_df.get("pearson_r", [0]*len(corr_df))))
-
+            if "p_adj_bh" in corr_df.columns:
+                padj_map = dict(zip(corr_df["comorbidity"], corr_df["p_adj_bh"]))
         for c in COMORBIDITY_NAMES:
-            r = corr_map.get(c, 0.0)
-            size = 20 if (highlight_type == "Comorbidity" or highlight_type == "All") else 15
+            r = float(corr_map.get(c, 0.0))
+            padj = float(padj_map.get(c, 1.0))
+            sig = padj < 0.05
             nodes.append(Node(
-                id=c,
-                label=c.replace("_", " ").title(),
-                size=size,
-                color="#F39C12",
-                title=f"Type: Comorbidity\nName: {c.replace('_',' ').title()}\nPearson r with TTD: {r:.3f}",
+                id=c, label=c.replace("_", " ").title(), level=1, shape="dot",
+                size=(12 + min(abs(r), 0.3) * 60) * _emph("Comorbidity"),
+                color="#E67E22" if sig else "#F5CBA7",
+                title=(f"Comorbidity: {c.replace('_',' ').title()}\n"
+                       f"Pearson r with TTD: {r:+.3f}   p-adj (BH): {padj:.4f}"),
             ))
 
-        # Outcome node (purple)
-        size = 35 if (highlight_type == "Outcome" or highlight_type == "All") else 25
+        # Outcome node — star, right column (level 2)
         nodes.append(Node(
-            id="discontinuation",
-            label="Treatment\nDiscontinuation",
-            size=size,
-            color="#8E44AD",
-            title="Type: Outcome\nDefinition: TTD (90-day grace period)\nReference: Lim 2025",
-            font={"size": 14, "bold": True},
+            id="discontinuation", label="Treatment\nDiscontinuation", level=2, shape="star",
+            size=34 * _emph("Outcome"), color="#8E44AD",
+            font={"size": 15, "color": "#FFFFFF", "bold": True},
+            title="Outcome: time to discontinuation (90-day grace period, Lim 2025)",
         ))
 
-        # TREATS edges (green)
+        # Edges — relationship type is encoded by COLOR (see legend), with details on
+        # hover; no always-on labels, and curved, to keep the graph readable.
+        SMOOTH = {"type": "curvedCW", "roundness": 0.2}
         if show_treats:
             for dc, comorbs in DRUG_COMORB_BENEFIT.items():
                 for c in comorbs:
                     edges.append(Edge(
-                        source=dc, target=c,
-                        label="TREATS",
-                        color="#27AE60",
-                        width=2,
-                        title="Relationship: TREATS (cardiorenal benefit, trial-based prior)",
+                        source=dc, target=c, color="#27AE60", width=2, smooth=SMOOTH,
+                        title=f"TREATS — {dc} → {c.replace('_',' ')} (cardiorenal benefit, trial-based prior)",
                     ))
-
-        # ASSOCIATED_WITH edges (red)
         if show_assoc:
             if corr_df is not None and "comorbidity" in corr_df.columns:
                 for _, row in corr_df.iterrows():
                     c = row.get("comorbidity", "")
-                    r = float(row.get("pearson_r", 0))
-                    p = float(row.get("p_adj_bh", 1))
                     if c in COMORBIDITY_NAMES:
+                        r = float(row.get("pearson_r", 0))
+                        p = float(row.get("p_adj_bh", 1))
                         edges.append(Edge(
                             source=c, target="discontinuation",
-                            label="ASSOC",
-                            color="#E74C3C",
-                            width=max(1, abs(r) * 5),
-                            title=f"Relationship: ASSOCIATED_WITH\nPearson r: {r:.3f}\np-adj (BH): {p:.4f}",
+                            color="#E74C3C" if p < 0.05 else "#F1948A",
+                            width=max(1.0, abs(r) * 8), smooth=SMOOTH,
+                            title=f"ASSOCIATED_WITH — r={r:+.3f}, p-adj (BH)={p:.4f}",
                         ))
             else:
                 for c in COMORBIDITY_NAMES:
                     edges.append(Edge(source=c, target="discontinuation",
-                                      label="ASSOC", color="#E74C3C", width=1))
-
-        # DRUG_CLASS_EFFECT edges (purple)
+                                      color="#E74C3C", width=1, smooth=SMOOTH,
+                                      title="ASSOCIATED_WITH"))
         if show_drug_effect:
             cox_ttd = load_csv("outputs/tables/cox_ttd_results.csv")
             for dc in ["glp1", "sglt2"]:
@@ -661,27 +658,32 @@ with tab5:
                     if not dc_rows.empty:
                         hr_val = float(dc_rows["exp(coef)"].iloc[0])
                 edges.append(Edge(
-                    source=dc, target="discontinuation",
-                    label=f"HR={hr_val:.2f}",
-                    color="#8E44AD",
-                    width=2,
-                    title=f"Relationship: DRUG_CLASS_EFFECT\nHR vs metformin: {hr_val:.3f}",
+                    source=dc, target="discontinuation", color="#8E44AD", width=2.5,
+                    smooth={"type": "curvedCCW", "roundness": 0.35},
+                    title=f"DRUG_CLASS_EFFECT — HR vs metformin: {hr_val:.3f}",
                 ))
 
-        config = Config(
-            width=900,
-            height=600,
-            directed=True,
-            physics=True,
-            hierarchical=False,
-            nodeHighlightBehavior=True,
-            highlightColor="#FFD700",
-            collapsible=True,
-            node={"labelProperty": "label"},
-            link={"labelProperty": "label", "renderLabel": True},
+        # Legend (streamlit-agraph has no native legend)
+        st.markdown(
+            "**Nodes** &nbsp; ⬛ Drug class &nbsp;·&nbsp; ⚫ Comorbidity "
+            "(size ∝ |r| with TTD; solid orange = FDR-significant) &nbsp;·&nbsp; ⭐ Outcome"
+            "<br>**Edges** &nbsp; "
+            "<span style='color:#27AE60'>━━</span> TREATS &nbsp;&nbsp; "
+            "<span style='color:#E74C3C'>━━</span> ASSOCIATED_WITH &nbsp;&nbsp; "
+            "<span style='color:#8E44AD'>━━</span> DRUG_CLASS_EFFECT &nbsp; "
+            "<span style='opacity:0.6'>(hover an edge for statistics)</span>",
+            unsafe_allow_html=True,
         )
 
-        st.info("**Tips:** Drag nodes to rearrange. Click a node to highlight its connections. Use checkboxes above to filter edge types.")
+        config = Config(
+            width=1000, height=720, directed=True,
+            physics=False, hierarchical=True,
+            direction="LR", sortMethod="directed",
+            levelSeparation=300, nodeSpacing=45, treeSpacing=140,
+            nodeHighlightBehavior=True, highlightColor="#FFD54F", collapsible=False,
+        )
+        st.info("**Tip:** the graph flows left → right — *drug → comorbidity → discontinuation*. "
+                "Click a node to isolate its connections; hover an edge for statistics.")
         agraph(nodes=nodes, edges=edges, config=config)
 
     except ImportError:
