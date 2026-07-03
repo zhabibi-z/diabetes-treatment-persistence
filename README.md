@@ -1,5 +1,7 @@
 # Comparative Treatment Persistence Among Initiators of Metformin, GLP-1 Receptor Agonists, and SGLT-2 Inhibitors in Type 2 Diabetes
 
+[![CI](https://github.com/zhabibi-z/diabetes-treatment-persistence/actions/workflows/ci.yml/badge.svg)](https://github.com/zhabibi-z/diabetes-treatment-persistence/actions/workflows/ci.yml)
+
 **Investigator:** Zia Habibi  
 **Version:** v2.0 (30,000 patients)  
 **Status:** Active — synthetic data validation  
@@ -107,7 +109,7 @@ src/app/app.py              6-tab interactive dashboard (interactive graph: stre
 
 ```bash
 # Clone / enter project directory
-cd t2dm-persistence-rwe
+cd diabetes-treatment-persistence
 
 # Copy and fill environment variables
 cp config/.env.template .env
@@ -137,6 +139,12 @@ bash scripts/bootstrap.sh
 > Get a free key at [console.groq.com](https://console.groq.com) and add `GROQ_API_KEY=...` to `.env`.
 
 ---
+
+## Documentation
+
+- [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — full study protocol (STaRT-RWE structured template).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system architecture, component map, and directory structure.
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — version history.
 
 ## References
 
