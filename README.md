@@ -79,7 +79,7 @@ All notebooks (v2.0): analytical code is visible inline — no hidden `.py` modu
 
 ## Pipeline Architecture
 
- ![Project Architecture Infographic] (https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2m_cp2.png?raw=true)
+ ![Project Architecture Infographic](https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2m_cp2.png?raw=true)
 
 ---
 
