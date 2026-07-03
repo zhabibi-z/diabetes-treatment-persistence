@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 # Streamlit Cloud entry-point shim.
 # The canonical app lives at src/app/app.py — this file executes it so that
 # Streamlit Cloud settings (hardcoded to streamlit_app/app.py) keep working

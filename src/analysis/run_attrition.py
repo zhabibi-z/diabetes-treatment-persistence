@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 analysis/run_attrition.py — CONSORT-style patient attrition flow diagram.
 
@@ -31,13 +33,13 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import PATHS, COHORT, ML
+from config import COHORT, ML, PATHS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)

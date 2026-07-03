@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_km_stratified.py — Per-comorbidity stratified Kaplan-Meier persistence curves.
 
@@ -18,6 +20,7 @@ import logging
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd

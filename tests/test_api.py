@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 tests/test_api.py — Integration tests for the FastAPI inference service.
 

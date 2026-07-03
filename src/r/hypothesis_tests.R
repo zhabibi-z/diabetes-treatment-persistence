@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 # hypothesis_tests.R — Normality tests, Mann-Whitney U, Kruskal-Wallis + Dunn BH-FDR.
 
 suppressPackageStartupMessages({

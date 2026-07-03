@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 api/schemas.py — Pydantic request/response models for the T2DM Persistence API.
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 # Install all R package dependencies for the T2DM Persistence RWE study.
 # Run once before the pipeline: Rscript scripts/install_r_packages.R
 

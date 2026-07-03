@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 tests/test_feature_engineering.py — Unit tests for ml/train.py::build_features().
 

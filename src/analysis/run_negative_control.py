@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 analysis/run_negative_control.py — Negative control outcome analysis.
 
@@ -57,7 +59,9 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

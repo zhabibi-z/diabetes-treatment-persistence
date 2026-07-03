@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_cox_ttc.py — Cox proportional hazards model for time-to-comorbidity (TTC).
 
@@ -18,6 +20,7 @@ from pathlib import Path
 
 import duckdb
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np

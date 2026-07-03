@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 # cohort_matching.R — 1:5 propensity score matching using MatchIt (Ho et al. 2011)
 # with balance diagnostics via cobalt.
 #

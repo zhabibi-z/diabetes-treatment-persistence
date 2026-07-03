@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_ttd.py — Time-to-discontinuation (TTD) analysis with 90-day grace period.
 
@@ -22,12 +24,13 @@ from pathlib import Path
 
 import duckdb
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter, KaplanMeierFitter
-from lifelines.statistics import logrank_test, multivariate_logrank_test
+from lifelines.statistics import multivariate_logrank_test
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -214,8 +217,6 @@ def run_ttd_analysis(db_path: str, matched_cohort: str, output_dir: str) -> None
     if low_var:
         log.warning("Dropping low-variance covariates from Cox model: %s", low_var)
         cox_data = cox_data.drop(columns=low_var)
-
-    cox_cols_final = [c for c in cox_data.columns]
 
     if len(cox_data) >= 30:
         try:

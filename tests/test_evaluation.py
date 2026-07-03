@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 tests/test_evaluation.py — Unit tests for ml/evaluation.py.
 

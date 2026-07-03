@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 api/main.py — FastAPI inference service for the T2DM Persistence RWE study.
 
@@ -43,7 +45,6 @@ from fastapi.middleware.cors import CORSMiddleware
 # config.py lives in src/; add src/ to path so all subpackages can import it
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import PATHS, ML
 from api.schemas import (
     DrugGraphContext,
     HealthResponse,
@@ -52,6 +53,7 @@ from api.schemas import (
     PredictionResponse,
     SurvivalResponse,
 )
+from config import ML, PATHS
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

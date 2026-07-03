@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 chatbot.py — LangChain + Groq (Llama 3.3 70B) chatbot with three RAG retrieval channels:
   1. Document RAG: FAISS vectorstore over ADA 2024 guidelines + study outputs.
@@ -27,7 +29,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 import duckdb
 import pandas as pd
@@ -109,9 +110,8 @@ class _TFIDFEmbeddings:
     """
 
     def __init__(self, n_components: int = 256) -> None:
-        from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.decomposition import TruncatedSVD
-        import numpy as np
+        from sklearn.feature_extraction.text import TfidfVectorizer
         self._vectorizer = TfidfVectorizer(
             analyzer="char_wb", ngram_range=(3, 5), max_features=5000, sublinear_tf=True,
         )
@@ -121,7 +121,6 @@ class _TFIDFEmbeddings:
 
     def _fit_if_needed(self, texts: list[str]) -> None:
         if not self._fitted:
-            import numpy as np
             tfidf = self._vectorizer.fit_transform(texts)
             self._svd.fit(tfidf)
             self._fitted = True
@@ -151,11 +150,9 @@ class T2DMChatbot:
         Build a FAISS vectorstore from the ADA guidelines and study output CSVs.
 
         Each document is stored with its source label so that retrieval results
-        can be cited in the response. A source_map dict maps chunk index to
-        human-readable source label.
+        can be cited in the response.
         """
         documents: list[Document] = []
-        source_map: dict[int, str] = {}
 
         # ADA 2024 guidelines
         if Path(ADA_PATH).exists():

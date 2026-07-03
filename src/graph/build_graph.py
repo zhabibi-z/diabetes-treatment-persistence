@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 graph/build_graph.py — Build a drug-disease-comorbidity knowledge graph.
 
@@ -26,6 +28,7 @@ import logging
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import networkx as nx

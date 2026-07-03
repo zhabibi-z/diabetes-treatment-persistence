@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_ttc.py — Time-to-comorbidity (TTC) Kaplan-Meier analysis.
 
@@ -21,9 +23,9 @@ from pathlib import Path
 
 import duckdb
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import pandas as pd
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import multivariate_logrank_test

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 analysis/run_iptw.py — Stabilised inverse probability of treatment weighting (IPTW).
 
@@ -54,6 +56,7 @@ import logging
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -362,7 +365,6 @@ def run_iptw_pipeline(
     fig_d.mkdir(parents=True, exist_ok=True)
 
     cohort = pd.read_csv(cohort_path)
-    ttd    = pd.read_csv(ttd_path) if ttd_path else None
 
     if "drug_class" not in cohort.columns:
         log.error("Column 'drug_class' not found in cohort file. Aborting.")

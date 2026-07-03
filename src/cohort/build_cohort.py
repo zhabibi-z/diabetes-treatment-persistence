@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 build_cohort.py — Constructs three mutually exclusive new-user T2DM cohorts
 from the OMOP CDM DuckDB database.
@@ -20,10 +22,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+from datetime import timedelta
 from pathlib import Path
 
 import duckdb
-import numpy as np
 import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -179,7 +181,6 @@ def build_cohort(db_path: str, output_dir: str) -> pd.DataFrame:
         idx_date = row["index_date"]
         if hasattr(idx_date, "date"):
             idx_date = idx_date.date()
-        from datetime import timedelta
         washout_start = idx_date - timedelta(days=WASHOUT_DAYS)
         return any(washout_start <= d < idx_date for d in row["all_rx_dates"])
 
@@ -191,7 +192,6 @@ def build_cohort(db_path: str, output_dir: str) -> pd.DataFrame:
     candidate = candidate[candidate["age_at_index"] >= 18]
 
     # Minimum 90-day follow-up
-    from datetime import timedelta
     candidate["followup_days"] = (
         pd.to_datetime(candidate["obs_end"]).dt.date.apply(
             lambda x: (x - pd.Timestamp.today().date()).days

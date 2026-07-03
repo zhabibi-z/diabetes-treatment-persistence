@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_correlations.py — Pearson correlation between each baseline comorbidity indicator
 and observed time-to-discontinuation (TTD), with BH-FDR correction.
@@ -18,6 +20,7 @@ import logging
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np

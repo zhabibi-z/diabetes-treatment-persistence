@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 ml/evaluation.py — Clinical prediction model evaluation suite.
 
@@ -46,6 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np

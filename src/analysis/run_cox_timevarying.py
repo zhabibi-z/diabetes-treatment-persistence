@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 run_cox_timevarying.py — Time-varying Cox proportional hazards model.
 

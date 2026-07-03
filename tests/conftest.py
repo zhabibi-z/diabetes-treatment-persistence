@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 tests/conftest.py — Shared pytest fixtures for the T2DM pipeline test suite.
 

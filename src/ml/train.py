@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 ml/train.py — XGBoost 1-year discontinuation predictor.
 
@@ -57,6 +59,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,21 +67,6 @@ import pandas as pd
 import shap
 import umap
 import xgboost as xgb
-from PIL import Image
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    brier_score_loss,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-    roc_curve,
-    ConfusionMatrixDisplay,
-)
-from sklearn.model_selection import StratifiedKFold
-
 from evaluation import (
     build_evaluation_report,
     compute_e_values_for_cox_results,
@@ -89,6 +77,19 @@ from evaluation import (
     save_roc_with_ci,
     summarise_baseline_results,
 )
+from PIL import Image
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    accuracy_score,
+    average_precision_score,
+    brier_score_loss,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import StratifiedKFold
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)

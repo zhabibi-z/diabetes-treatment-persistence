@@ -1,4 +1,6 @@
 #!/usr/bin/env Rscript
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 # survival_analysis.R — Survival analysis suite: KM, Cox PH, Schoenfeld residuals,
 #                        Harrell's C-index, and Fine-Gray competing risks model.
 #

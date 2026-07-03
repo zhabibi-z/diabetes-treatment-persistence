@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 synthea_to_omop.py — ETL: Synthea CSV output → OMOP CDM v5.4 in DuckDB.
 
@@ -19,10 +21,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import random
-import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -483,7 +482,6 @@ def _map_synthea_to_omop(synthea: dict[str, pd.DataFrame]) -> dict[str, pd.DataF
             meds.get("STOP", meds["START"])
         ).dt.date
 
-        all_drug_cids = {cid for d in DRUG_CONCEPTS.values() for cid in d.values()}
         meds["drug_concept_id"] = meds["CODE"].astype(str).apply(
             lambda c: next((cid for drugs in DRUG_CONCEPTS.values()
                             for name, cid in drugs.items() if c.lower() in name), 0)

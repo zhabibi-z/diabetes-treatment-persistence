@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Zia Habibi
+# SPDX-License-Identifier: MIT
 """
 src/app/app.py — T2DM Persistence RWE interactive dashboard (v2.0).
 
@@ -14,8 +16,8 @@ Run: streamlit run src/app/app.py
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -454,7 +456,8 @@ with tab4:
         nafld        = st.checkbox("NAFLD")
 
     if st.button("Predict Discontinuation Risk"):
-        import numpy as np, xgboost as xgb_, pandas as _pd
+        import pandas as _pd
+        import xgboost as xgb_
         model_path = Path("outputs/models/xgb_model.ubj")
         if model_path.exists():
             @st.cache_resource
@@ -539,7 +542,7 @@ with tab5:
     )
 
     try:
-        from streamlit_agraph import agraph, Node, Edge, Config
+        from streamlit_agraph import Config, Edge, Node, agraph
 
         # ── Build graph data ──────────────────────────────────────────────────
         DRUG_COMORB_BENEFIT = {
