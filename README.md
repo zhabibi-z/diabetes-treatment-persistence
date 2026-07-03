@@ -9,7 +9,7 @@
 **Live Demo:** https://t2dm-persistence-rwe.streamlit.app/
 
 
-![Project Architecture Infographic](https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2dm_cp1.png?raw=true)
+![Project Architecture Infographic](docs/images/t2dm_cp1.png)
 
 ---
 
@@ -79,7 +79,7 @@ All notebooks (v2.0): analytical code is visible inline — no hidden `.py` modu
 
 ## Pipeline Architecture
 
- ![Project Architecture Infographic](https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2m_cp2.png?raw=true)
+![Project Architecture Infographic](docs/images/t2m_cp2.png)
 
 ---
 
