@@ -82,11 +82,15 @@ km_plot <- ggsurvplot(
   risk.table.height = 0.28,
   surv.median.line  = "hv",
 )
-ggsave(
+# ggsurvplot with a risk table is a composite grob, not a plain ggplot, so
+# ggsave(plot = print(km_plot)) silently writes nothing. Render it to a PNG
+# device instead so the combined curve + risk table is saved reliably.
+png(
   file.path(opt$output, "km_persistence_survminer.png"),
-  plot  = print(km_plot),
-  width = 10, height = 7, dpi = 150
+  width = 10, height = 7, units = "in", res = 150
 )
+print(km_plot)
+dev.off()
 message("KM plot saved: km_persistence_survminer.png")
 
 
