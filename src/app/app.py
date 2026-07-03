@@ -59,10 +59,17 @@ def load_csv(path: str, default_cols: list[str] | None = None) -> pd.DataFrame |
 
 def show_image(path: str, caption: str = "", width: int | None = None) -> None:
     p = Path(path)
-    if p.exists():
-        st.image(str(p), caption=caption, use_container_width=(width is None))
-    else:
+    if not p.exists():
         st.info(f"Figure not yet generated: `{path}`\nRun `bash scripts/bootstrap.sh` to produce outputs.")
+        return
+    stretch = width is None
+    # st.image only gained `use_container_width` in Streamlit 1.42; the pinned
+    # 1.35 still uses `use_column_width`. Support both so the figure renders
+    # regardless of the installed Streamlit version.
+    try:
+        st.image(str(p), caption=caption, use_container_width=stretch)
+    except TypeError:
+        st.image(str(p), caption=caption, use_column_width=stretch)
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -424,7 +431,7 @@ with tab4:
         for axis in fair_df["axis"].unique():
             sub = fair_df[fair_df["axis"] == axis].drop(columns=["axis"])
             st.markdown(f"**{axis.replace('_', ' ').title()}**")
-            styled = sub.style.applymap(
+            styled = sub.style.map(
                 lambda v: "background-color: #ffe0e0" if v is True else "",
                 subset=["flagged"],
             ).format({"auc": "{:.3f}", "auc_gap": "{:+.3f}", "demographic_parity_diff": "{:.4f}"})
