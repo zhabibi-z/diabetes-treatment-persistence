@@ -4,7 +4,12 @@
 # Install all R package dependencies for the T2DM Persistence RWE study.
 # Run once before the pipeline: Rscript scripts/install_r_packages.R
 
-options(repos = c(CRAN = "https://cloud.r-project.org"))
+# Keep an already-configured repository (e.g. Posit Public Package Manager on CI,
+# which serves fast pre-built binaries); otherwise fall back to CRAN.
+.repos <- getOption("repos")
+if (is.null(.repos[["CRAN"]]) || .repos[["CRAN"]] == "@CRAN@") {
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+}
 
 required_packages <- c(
   "MatchIt",      # Propensity score matching
@@ -39,7 +44,11 @@ required_packages <- c(
 install_if_missing <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     message(sprintf("Installing: %s", pkg))
-    install.packages(pkg, dependencies = TRUE)
+    # dependencies = NA installs Depends/Imports/LinkingTo (what the packages
+    # need to load), but NOT Suggests — which for MatchIt/cobalt pull in optional
+    # optimal-matching solvers (Rsymphony, gurobi, designmatch) that need system
+    # libraries and are unused here (the study uses nearest-neighbour matching).
+    install.packages(pkg, dependencies = NA)
   } else {
     message(sprintf("Already installed: %s", pkg))
   }
