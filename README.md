@@ -8,6 +8,9 @@
 **Data:** 30,000 synthetic patients, OMOP CDM v5.4 (no real PHI)  
 **Live Demo:** https://t2dm-persistence-rwe.streamlit.app/
 
+
+![Project Architecture Infographic](https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2dm_cp1.png?raw=true)
+
 ---
 
 ## Overview
