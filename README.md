@@ -1,6 +1,6 @@
 # Comparative Treatment Persistence Among Initiators of Metformin, GLP-1 Receptor Agonists, and SGLT-2 Inhibitors in Type 2 Diabetes
 
-[![CI](https://github.com/zhabibi-z/diabetes-treatment-persistence/actions/workflows/ci.yml/badge.svg)](https://github.com/zhabibi-z/diabetes-treatment-persistence/actions/workflows/ci.yml)
+[![CI](https://github.com/zhabibi-z/t2dm-persistence-rwe/actions/workflows/ci.yml/badge.svg)](https://github.com/zhabibi-z/t2dm-persistence-rwe/actions/workflows/ci.yml)
 
 **Investigator:** Zia Habibi  
 **Version:** v2.0 (30,000 patients)  
@@ -109,7 +109,7 @@ src/app/app.py              6-tab interactive dashboard (interactive graph: stre
 
 ```bash
 # Clone / enter project directory
-cd diabetes-treatment-persistence
+cd t2dm-persistence-rwe
 
 # Copy and fill environment variables
 cp config/.env.template .env
