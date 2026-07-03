@@ -22,7 +22,9 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select  = ["E", "W", "F", "I"]
-ignore  = ["E501", "W503"]
+# W503 (line break before binary operator) is a pycodestyle rule ruff does not
+# implement; leaving it here made `ruff check` fail with "unknown rule selector".
+ignore  = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["config", "api", "ml"]
