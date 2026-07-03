@@ -79,32 +79,7 @@ All notebooks (v2.0): analytical code is visible inline — no hidden `.py` modu
 
 ## Pipeline Architecture
 
-```
-Synthetic Data Generator (30,000 T2DM patients, seed=42)
-    │
-    ▼
-synthea_to_omop.py          ETL: synthetic → OMOP CDM v5.4 (DuckDB)
-    │
-    ▼
-build_cohort.py             3 mutually exclusive new-user cohorts
-cohort_matching.R           1:5 PS matching (MatchIt, caliper=0.2 SD), balance (cobalt)
-    │
-    ├── run_ttd.py              Time-to-discontinuation (90-day grace)
-    ├── run_ttc.py              Time-to-comorbidity KM
-    ├── run_cox_timevarying.py  Time-varying Cox (comorbidity 0→1 transitions)
-    ├── run_cox_ttc.py          TTC Cox per comorbidity
-    ├── run_correlations.py     Pearson correlation comorbidity × TTD
-    ├── run_km_stratified.py    Per-comorbidity stratified KM (codx=0 vs 1)
-    ├── survival_analysis.R     survminer KM + forest plot + Schoenfeld residuals
-    └── hypothesis_tests.R      Shapiro-Wilk, MW-U, Kruskal-Wallis, Dunn BH-FDR
-    │
-    ├── train.py            XGBoost + UMAP + SHAP (5-fold CV)
-    ├── build_graph.py      NetworkX → Cypher export
-    └── chatbot.py          LangChain + Groq Llama 3.3 70B + RAG
-    │
-    ▼
-src/app/app.py              6-tab interactive dashboard (interactive graph: streamlit-agraph)
-```
+ ![Project Architecture Infographic] (https://github.com/zhabibi-z/t2dm-persistence-rwe/blob/main/t2m_cp2.png?raw=true)
 
 ---
 
