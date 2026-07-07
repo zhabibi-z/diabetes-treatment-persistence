@@ -26,7 +26,7 @@ The study follows the **STaRT-RWE** structured template, the **OHDSI LegendT2dm*
 The study uses a **new-user active-comparator design** (Schneeweiss 2007, Lund 2015):
 
 - **New-user design:** Patients are enrolled at their first dispensing of a study drug, after a 365-day washout period with no prior use of any study class. This eliminates prevalent-user bias by ensuring all patients have the same opportunity to experience early tolerability events.
-- **Active comparator:** Metformin serves as the reference class. Comparing GLP-1 RA and SGLT-2i directly to metformin (rather than to a non-initiator control) reduces confounding by indication — both groups are actively managed T2DM patients who qualified for pharmacotherapy.
+- **Active comparator:** Metformin serves as the reference class. Comparing GLP-1 RA and SGLT-2i directly to metformin (rather than to a non-initiator control) reduces confounding by indication; both groups are actively managed T2DM patients who qualified for pharmacotherapy.
 - **Mutually exclusive cohorts:** Patients are assigned to the first drug class dispensed after T2DM diagnosis. If a patient initiated metformin before GLP-1, they are a metformin new-user.
 - **1:5 PS matching:** Propensity scores estimated from logistic regression on age, sex, CCI, and 15 comorbidity flags. Nearest-neighbour matching without replacement, caliper 0.20 SD (Austin 2011).
 
