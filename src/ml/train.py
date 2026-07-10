@@ -49,6 +49,7 @@ Outputs
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import pickle
 import sys
@@ -75,9 +76,11 @@ from evaluation import (
     save_calibration_curve,
     save_fairness_report,
     save_roc_with_ci,
+    select_operating_threshold,
     summarise_baseline_results,
 )
 from PIL import Image
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -88,8 +91,11 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 from sklearn.model_selection import StratifiedKFold
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -310,16 +316,98 @@ def run_cv(
     return summary, fold_metrics, np.array(all_probs), np.array(all_labels)
 
 
+# ── Nested cross-validation ────────────────────────────────────────────────────
+
+
+def run_nested_cv(
+    X: np.ndarray,
+    y: np.ndarray,
+    n_splits: int = 5,
+    inner_splits: int = 3,
+    random_state: int = 42,
+) -> tuple[dict, list[dict], np.ndarray]:
+    """
+    Nested stratified CV that yields an UNBIASED out-of-fold estimate.
+
+    The flat CV previously used here selected XGBoost's early-stopping
+    best_iteration on the *same* validation fold whose probabilities were then
+    reported as OOF — a mild but real optimism leak. Nested CV removes it:
+
+      * Inner loop (on the outer-train split only) selects best_iteration via
+        early stopping — the outer-test fold is never seen during tuning.
+      * The model is refit on the full outer-train with that fixed n_estimators
+        (no early stopping) and predicts the untouched outer-test fold.
+
+    OOF probabilities are returned in ORIGINAL row order (each sample is scored
+    exactly once, on the fold where it is held out), so they align with the
+    feature frame for downstream fairness/subgroup analysis.
+
+    Returns:
+        (summary dict, per-outer-fold metrics, OOF probabilities in original order).
+    """
+    outer = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    oof_probs = np.full(len(y), np.nan)
+    fold_metrics: list[dict] = []
+    best_iters: list[int] = []
+
+    for fold, (tr, te) in enumerate(outer.split(X, y)):
+        X_tr, y_tr = X[tr], y[tr]
+
+        # Inner CV: pick best_iteration without ever touching the outer-test fold.
+        inner = StratifiedKFold(n_splits=inner_splits, shuffle=True, random_state=random_state + fold + 1)
+        inner_best: list[int] = []
+        for itr, ival in inner.split(X_tr, y_tr):
+            m = xgb.XGBClassifier(**XGB_PARAMS, early_stopping_rounds=30)
+            m.fit(X_tr[itr], y_tr[itr], eval_set=[(X_tr[ival], y_tr[ival])], verbose=False)
+            inner_best.append(m.best_iteration or XGB_PARAMS["n_estimators"])
+        best_n = max(int(np.mean(inner_best)), 1)
+        best_iters.append(best_n)
+
+        # Refit on full outer-train with fixed n_estimators; score untouched outer-test.
+        final_params = {**XGB_PARAMS, "n_estimators": best_n}
+        model = xgb.XGBClassifier(**final_params)
+        model.fit(X_tr, y_tr)
+        probs = model.predict_proba(X[te])[:, 1]
+        oof_probs[te] = probs
+
+        yt = y[te]
+        fold_metrics.append({
+            "fold":  fold + 1,
+            "auc":   roc_auc_score(yt, probs),
+            "brier": brier_score_loss(yt, probs),
+            "auprc": average_precision_score(yt, probs),
+            "best_iter": best_n,
+        })
+        log.info(
+            "  Outer fold %d: AUC=%.3f  Brier=%.4f  best_iter=%d (inner-selected)",
+            fold + 1, fold_metrics[-1]["auc"], fold_metrics[-1]["brier"], best_n,
+        )
+
+    fm = pd.DataFrame(fold_metrics)
+    summary = {
+        "mean_auc":   fm["auc"].mean(),   "std_auc":   fm["auc"].std(),
+        "mean_brier": fm["brier"].mean(), "std_brier": fm["brier"].std(),
+        "mean_auprc": fm["auprc"].mean(), "std_auprc": fm["auprc"].std(),
+        "mean_best_iter": int(np.mean(best_iters)),
+    }
+    log.info(
+        "Nested CV: AUC=%.3f±%.3f  Brier=%.4f±%.4f  mean_best_iter=%d",
+        summary["mean_auc"], summary["std_auc"], summary["mean_brier"],
+        summary["std_brier"], summary["mean_best_iter"],
+    )
+    return summary, fold_metrics, oof_probs
+
+
 # ── Figures ───────────────────────────────────────────────────────────────────
 
 
-def save_confusion(probs_oof: np.ndarray, labels_oof: np.ndarray, fig_dir: Path) -> None:
-    preds = (probs_oof >= 0.5).astype(int)
+def save_confusion(probs_oof: np.ndarray, labels_oof: np.ndarray, fig_dir: Path, threshold: float = 0.5) -> None:
+    preds = (probs_oof >= threshold).astype(int)
     cm = confusion_matrix(labels_oof, preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Persistent", "Discontinued"])
     fig, ax = plt.subplots(figsize=(5, 4))
     disp.plot(ax=ax, colorbar=False, cmap="Blues")
-    ax.set_title("Confusion Matrix (threshold = 0.50)\n1-Year Discontinuation (OOF)")
+    ax.set_title(f"Confusion Matrix (tuned threshold = {threshold:.2f})\n1-Year Discontinuation (OOF)")
     plt.tight_layout()
     plt.savefig(fig_dir / "confusion_matrix.png", dpi=150)
     plt.close()
@@ -431,7 +519,8 @@ def _mlflow_setup() -> None:
         log.warning("MLflow setup failed (%s) — continuing without tracking.", exc)
 
 
-def _mlflow_log(xgb_report, comparison_df, feature_cols, final, mod_d: Path) -> None:
+def _mlflow_log(xgb_report, comparison_df, feature_cols, final, mod_d: Path,
+                lr_report=None, primary_threshold=None) -> None:
     """
     Log hyperparameters, metrics, and the trained model artefact to MLflow.
 
@@ -470,10 +559,21 @@ def _mlflow_log(xgb_report, comparison_df, feature_cols, final, mod_d: Path) -> 
         mlflow.log_metric("oof_mce",          ca.max_calibration_error)
 
         # Baseline deltas (XGBoost AUROC lift over logistic regression)
-        lr_row = comparison_df[comparison_df["model"] == "logistic_regression"]
+        lr_row = comparison_df[comparison_df["Model"].str.contains("Logistic Regression", case=False, na=False)]
         if not lr_row.empty:
-            lr_auroc = lr_row["auroc"].values[0]
+            lr_auroc = lr_row["Mean AUROC"].values[0]
             mlflow.log_metric("auroc_lift_vs_lr", round(d.auroc - float(lr_auroc), 4))
+
+        # Primary model (logistic regression) metrics + operating threshold
+        if lr_report is not None:
+            ld, lca = lr_report.discrimination, lr_report.calibration
+            mlflow.log_param("primary_model", "logistic_regression")
+            mlflow.log_metric("primary_oof_auroc", ld.auroc)
+            mlflow.log_metric("primary_oof_auprc", ld.auprc)
+            mlflow.log_metric("primary_oof_brier", ld.brier_score)
+            mlflow.log_metric("primary_oof_ece",   lca.expected_calibration_error)
+        if primary_threshold is not None:
+            mlflow.log_param("primary_operating_threshold", primary_threshold)
 
         # Model artefact
         mlflow.xgboost.log_model(final, artifact_path="xgb_discontinuation")
@@ -522,76 +622,139 @@ def run_training(cohort_path: str, ttd_path: str, output_dir: str) -> None:
             100 * pos_rate,
         )
 
-    # ── 5-fold CV ─────────────────────────────────────────────────────────────
-    log.info("Running 5-fold stratified CV …")
-    summary, fold_metrics, oof_probs, oof_labels = run_cv(X, y)
+    # ── Nested CV for XGBoost (unbiased OOF, no early-stopping leak) ───────────
+    log.info("Running nested stratified CV for XGBoost (5 outer × 3 inner) …")
+    summary, xgb_fold_metrics, oof_probs = run_nested_cv(X, y, n_splits=5, inner_splits=3)
+    oof_labels = y  # nested-CV OOF is in original row order → aligns with the frame
 
     if summary["mean_auc"] < 0.60:
         log.warning(
-            "CV AUC=%.3f is below 0.60 — inspect feature quality and outcome definition.",
+            "Nested-CV AUC=%.3f is below 0.60 — genuine signal is weak; a parsimonious "
+            "linear model is preferred as primary (see model_comparison.csv).",
             summary["mean_auc"],
         )
 
-    # ── Full evaluation report (XGBoost, OOF) ─────────────────────────────────
-    xgb_report = build_evaluation_report(
-        oof_labels, oof_probs, model_name="XGBoost", split_name="oof",
-    )
-
-    # ── Baseline benchmarks ────────────────────────────────────────────────────
+    # ── Baselines (Majority, Stratified, Logistic Regression) — same folds ─────
     log.info("Running baseline cross-validation (majority class + logistic regression) …")
     baseline_df, baseline_oof = run_baseline_cv(X, y, n_splits=5, random_state=42)
+    lr_oof = baseline_oof["Logistic Regression"]
 
-    comparison_df = summarise_baseline_results(baseline_df, baseline_oof, oof_labels, xgb_report)
+    # ── Evaluation reports: LR = PRIMARY, XGBoost = SENSITIVITY ────────────────
+    # Logistic regression is promoted to primary because XGBoost shows no
+    # meaningful AUROC lift over it; the parsimonious, natively-calibrated model
+    # is preferred for clinical reporting (Steyerberg et al. 2010).
+    lr_report  = build_evaluation_report(oof_labels, lr_oof, "Logistic Regression", "oof")
+    xgb_report = build_evaluation_report(oof_labels, oof_probs, "XGBoost", "oof")
+
+    lift = xgb_report.discrimination.auroc - lr_report.discrimination.auroc
+    log.info(
+        "XGBoost AUROC lift over logistic regression: %+.4f — %s.",
+        lift, "keeping LR as primary" if lift < 0.02 else "XGBoost adds signal",
+    )
+
+    # ── Operating-threshold selection (replaces the naive 0.5) ─────────────────
+    log.info("Selecting operating thresholds (Youden's J) …")
+    lr_thr  = select_operating_threshold(oof_labels, lr_oof, method="youden")
+    xgb_thr = select_operating_threshold(oof_labels, oof_probs, method="youden")
+    # For reference, also record the prevalence-matched threshold for the primary model.
+    lr_prev_thr = select_operating_threshold(oof_labels, lr_oof, method="prevalence")
+
+    thresholds_out = {
+        "primary_model": "logistic_regression",
+        "logistic_regression_youden": lr_thr,
+        "logistic_regression_prevalence": lr_prev_thr,
+        "xgboost_youden": xgb_thr,
+        "event_prevalence": round(float(oof_labels.mean()), 4),
+    }
+    (tbl_d / "operating_thresholds.json").write_text(json.dumps(thresholds_out, indent=2))
+
+    # ── Model comparison table (primary/sensitivity labelled) ──────────────────
+    comparison_df = summarise_baseline_results(
+        baseline_df, baseline_oof, oof_labels, xgb_report,
+        xgb_label="XGBoost (sensitivity)", primary_baseline="Logistic Regression",
+    )
     comparison_df.to_csv(tbl_d / "model_comparison.csv", index=False)
     log.info("Model comparison table:\n%s", comparison_df.to_string(index=False))
 
-    # ── Metrics CSV ────────────────────────────────────────────────────────────
-    rows = []
-    for m in fold_metrics:
-        rows.append({
-            "split": f"fold_{m['fold']}",
-            **{k: v for k, v in m.items() if k != "fold"},
-        })
-    rows.append({
-        "split": "mean",
-        **{k: round(summary[f"mean_{k}"], 4) for k in ["auc", "accuracy", "precision", "recall", "f1", "brier", "auprc"]},
-        "auroc_ci_low":  round(xgb_report.discrimination.auroc_ci_low, 4),
-        "auroc_ci_high": round(xgb_report.discrimination.auroc_ci_high, 4),
-        "ece":           round(xgb_report.calibration.expected_calibration_error, 4),
-        "mce":           round(xgb_report.calibration.max_calibration_error, 4),
-    })
-    rows.append({
-        "split": "std",
-        **{k: round(summary[f"std_{k}"], 4) for k in ["auc", "accuracy", "precision", "recall", "f1", "brier", "auprc"]},
-    })
-    pd.DataFrame(rows).to_csv(tbl_d / "ml_metrics.csv", index=False)
+    # ── Metrics CSV: both models, threshold-free + tuned-threshold metrics ─────
+    def _metric_row(name: str, rep, thr: dict) -> dict:
+        d, ca = rep.discrimination, rep.calibration
+        return {
+            "model":         name,
+            "split":         "oof_nested" if name == "XGBoost" else "oof",
+            "auroc":         round(d.auroc, 4),
+            "auroc_ci_low":  round(d.auroc_ci_low, 4),
+            "auroc_ci_high": round(d.auroc_ci_high, 4),
+            "auprc":         round(d.auprc, 4),
+            "brier":         round(d.brier_score, 4),
+            "ece":           round(ca.expected_calibration_error, 4),
+            "mce":           round(ca.max_calibration_error, 4),
+            "op_threshold":  thr["threshold"],
+            "accuracy":      thr["accuracy"],
+            "precision":     thr["precision"],
+            "recall":        thr["recall"],
+            "specificity":   thr["specificity"],
+            "f1":            thr["f1"],
+        }
 
-    # ── Final model ────────────────────────────────────────────────────────────
-    # Use mean best_iteration from CV to avoid the discrepancy between
-    # early-stopping folds and the no-eval-set final fit.
+    metric_rows = [
+        _metric_row("Logistic Regression (primary)", lr_report, lr_thr),
+        _metric_row("XGBoost", xgb_report, xgb_thr),
+    ]
+    # Per-outer-fold XGBoost discrimination for transparency
+    for m in xgb_fold_metrics:
+        metric_rows.append({
+            "model": "XGBoost", "split": f"outer_fold_{m['fold']}",
+            "auroc": round(m["auc"], 4), "auprc": round(m["auprc"], 4),
+            "brier": round(m["brier"], 4),
+        })
+    pd.DataFrame(metric_rows).to_csv(tbl_d / "ml_metrics.csv", index=False)
+
+    # ── Final PRIMARY model: scaled logistic regression on full data ───────────
+    log.info("Fitting final primary model (scaled logistic regression) on full data …")
+    primary = Pipeline([
+        ("scaler", StandardScaler()),
+        ("lr", LogisticRegression(max_iter=1000, C=1.0, solver="lbfgs", random_state=42)),
+    ])
+    primary.fit(X, y)
+    with open(mod_d / "logreg_discontinuation.pkl", "wb") as f:
+        pickle.dump({"model": primary, "feature_cols": feature_cols,
+                     "operating_threshold": lr_thr["threshold"]}, f)
+    log.info("Primary model saved: logreg_discontinuation.pkl (threshold=%.4f)", lr_thr["threshold"])
+
+    lr_coef = pd.DataFrame({
+        "feature": feature_cols,
+        "coefficient": primary.named_steps["lr"].coef_[0],
+    }).reindex(primary.named_steps["lr"].coef_[0].argsort()[::-1]).reset_index(drop=True)
+    lr_coef.to_csv(tbl_d / "logreg_coefficients.csv", index=False)
+
+    # ── Final SENSITIVITY model: XGBoost (retained for SHAP/UMAP) ──────────────
     best_n = summary.get("mean_best_iter", XGB_PARAMS["n_estimators"])
     final_params = {**XGB_PARAMS, "n_estimators": best_n}
-    log.info("Training final model on full data (n_estimators=%d from CV mean) …", best_n)
+    log.info("Fitting sensitivity model (XGBoost, n_estimators=%d from nested-CV mean) …", best_n)
     final = xgb.XGBClassifier(**final_params)
     final.fit(X, y)
-
     with open(mod_d / "xgb_discontinuation.pkl", "wb") as f:
         pickle.dump(final, f)
     final.save_model(str(mod_d / "xgb_model.ubj"))
-    log.info("Models saved: xgb_discontinuation.pkl + xgb_model.ubj")
+    log.info("Sensitivity model saved: xgb_discontinuation.pkl + xgb_model.ubj")
 
-    # ── Feature importance ─────────────────────────────────────────────────────
+    # ── Feature importance (XGBoost gain) ──────────────────────────────────────
     fi = pd.DataFrame({
         "feature":    feature_cols,
         "importance": final.feature_importances_,
     }).sort_values("importance", ascending=False).reset_index(drop=True)
     fi.to_csv(tbl_d / "feature_importance.csv", index=False)
-    log.info("Top 5 features: %s", fi.head(5)["feature"].tolist())
+    log.info("Top 5 XGBoost features: %s", fi.head(5)["feature"].tolist())
 
     # ── Figures ────────────────────────────────────────────────────────────────
-    save_roc_with_ci(oof_labels, oof_probs, fig_d / "roc_curve.png")
-    save_calibration_curve(oof_labels, oof_probs, fig_d / "calibration_curve.png")
-    save_confusion(oof_probs, oof_labels, fig_d)
+    # Headline ROC/calibration/confusion use the PRIMARY (logistic) model.
+    save_roc_with_ci(oof_labels, lr_oof, fig_d / "roc_curve.png", model_name="Logistic Regression (OOF)")
+    save_calibration_curve(oof_labels, lr_oof, fig_d / "calibration_curve.png", model_name="Logistic Regression")
+    save_confusion(lr_oof, oof_labels, fig_d, threshold=lr_thr["threshold"])
+    # XGBoost sensitivity curves kept alongside.
+    save_roc_with_ci(oof_labels, oof_probs, fig_d / "roc_curve_xgb.png", model_name="XGBoost (OOF, nested)")
+    save_calibration_curve(oof_labels, oof_probs, fig_d / "calibration_curve_xgb.png", model_name="XGBoost")
     save_shap(final, X, feature_cols, fig_d)
 
     try:
@@ -599,25 +762,25 @@ def run_training(cohort_path: str, ttd_path: str, output_dir: str) -> None:
     except Exception as e:
         log.warning("UMAP failed: %s", e)
 
-    # ── Fairness evaluation ────────────────────────────────────────────────────
-    log.info("Running subgroup fairness evaluation …")
+    # ── Fairness evaluation (on the PRIMARY model's OOF predictions) ───────────
+    log.info("Running subgroup fairness evaluation on the primary model …")
     fairness_reports = []
 
     sex_series = pd.Series(df["sex_female"].values).map({1: "Female", 0: "Male"})
     fairness_reports.append(
-        evaluate_fairness_subgroups(oof_labels, oof_probs, sex_series, axis_name="sex")
+        evaluate_fairness_subgroups(oof_labels, lr_oof, sex_series, axis_name="sex")
     )
 
     age_bins  = pd.cut(df["age_at_index"], bins=[0, 44, 64, 74, 120],
                        labels=["18–44", "45–64", "65–74", "75+"])
     age_series = pd.Series(age_bins.values.astype(str))
     fairness_reports.append(
-        evaluate_fairness_subgroups(oof_labels, oof_probs, age_series, axis_name="age_band")
+        evaluate_fairness_subgroups(oof_labels, lr_oof, age_series, axis_name="age_band")
     )
 
     dc_series = pd.Series(df["drug_class"].values if "drug_class" in df.columns else np.full(len(df), "unknown"))
     fairness_reports.append(
-        evaluate_fairness_subgroups(oof_labels, oof_probs, dc_series, axis_name="drug_class")
+        evaluate_fairness_subgroups(oof_labels, lr_oof, dc_series, axis_name="drug_class")
     )
 
     save_fairness_report(fairness_reports, tbl_d / "fairness_report.csv")
@@ -635,7 +798,8 @@ def run_training(cohort_path: str, ttd_path: str, output_dir: str) -> None:
     # ── MLflow logging ─────────────────────────────────────────────────────────
     if _MLFLOW_AVAILABLE:
         with mlflow.start_run():
-            _mlflow_log(xgb_report, comparison_df, feature_cols, final, mod_d)
+            _mlflow_log(xgb_report, comparison_df, feature_cols, final, mod_d,
+                        lr_report=lr_report, primary_threshold=lr_thr["threshold"])
 
     log.info("Training complete — all outputs written to %s", out)
 

@@ -20,7 +20,44 @@ from evaluation import (
     run_baseline_cv,
     evaluate_fairness_subgroups,
     build_evaluation_report,
+    select_operating_threshold,
+    threshold_metrics,
 )
+
+
+# ── operating-threshold selection ─────────────────────────────────────────────
+
+class TestOperatingThreshold:
+    """select_operating_threshold corrects the naive-0.5 artefact on off-50% prevalence."""
+
+    def test_prevalence_threshold_equals_event_rate(self):
+        rng = np.random.default_rng(0)
+        y = (rng.random(1000) < 0.42).astype(int)
+        p = rng.random(1000)
+        out = select_operating_threshold(y, p, method="prevalence")
+        assert out["threshold"] == pytest.approx(y.mean(), abs=1e-6)
+
+    def test_youden_beats_half_on_low_prevalence(self):
+        # Signal-bearing scores at ~42% prevalence: Youden threshold should
+        # recover far more recall than the naive 0.5 cut-point.
+        rng = np.random.default_rng(1)
+        y = (rng.random(4000) < 0.42).astype(int)
+        p = np.clip(0.30 + 0.25 * y + rng.normal(0, 0.15, size=y.size), 0, 1)
+        naive = threshold_metrics(y, p, 0.5)
+        tuned = select_operating_threshold(y, p, method="youden")
+        assert tuned["recall"] > naive["recall"]
+        assert tuned["f1"] >= naive["f1"]
+
+    def test_threshold_metrics_specificity_bounds(self, binary_predictions):
+        y_true, y_prob = binary_predictions
+        m = threshold_metrics(y_true, y_prob, 0.5)
+        assert 0.0 <= m["specificity"] <= 1.0
+        assert 0.0 <= m["recall"] <= 1.0
+
+    def test_unknown_method_raises(self, binary_predictions):
+        y_true, y_prob = binary_predictions
+        with pytest.raises(ValueError):
+            select_operating_threshold(y_true, y_prob, method="bogus")
 
 
 # ── bootstrap_auroc_ci ────────────────────────────────────────────────────────

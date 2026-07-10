@@ -59,9 +59,14 @@ from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     RocCurveDisplay,
+    accuracy_score,
     average_precision_score,
     brier_score_loss,
+    f1_score,
+    precision_score,
+    recall_score,
     roc_auc_score,
+    roc_curve,
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
@@ -265,6 +270,77 @@ def compute_calibration_metrics(
     )
 
 
+# ── Operating-threshold selection ─────────────────────────────────────────────
+
+
+def threshold_metrics(y_true: np.ndarray, y_prob: np.ndarray, threshold: float) -> dict:
+    """Compute threshold-dependent classification metrics at a given cut-point."""
+    preds = (y_prob >= threshold).astype(int)
+    tn = int(((preds == 0) & (y_true == 0)).sum())
+    fp = int(((preds == 1) & (y_true == 0)).sum())
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    return {
+        "threshold":   round(float(threshold), 4),
+        "accuracy":    round(accuracy_score(y_true, preds), 4),
+        "precision":   round(precision_score(y_true, preds, zero_division=0), 4),
+        "recall":      round(recall_score(y_true, preds, zero_division=0), 4),
+        "specificity": round(specificity, 4),
+        "f1":          round(f1_score(y_true, preds, zero_division=0), 4),
+    }
+
+
+def select_operating_threshold(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    method: str = "youden",
+) -> dict:
+    """
+    Choose a decision threshold instead of the naive 0.5, which is wrong whenever
+    the event rate differs from 50% or the score is poorly separated.
+
+    Methods
+    -------
+    youden      : maximise Youden's J = sensitivity + specificity − 1 (the point
+                  farthest from the chance diagonal on the ROC). Balances
+                  sensitivity and specificity; standard for clinical cut-points.
+    prevalence  : set the threshold to the outcome prevalence, so the predicted
+                  positive rate matches the base rate under a calibrated model.
+    f1          : maximise F1 over a grid of candidate thresholds.
+
+    A default 0.5 threshold on a ~42% event-rate, low-separation problem drives
+    recall/F1 to ~0 as an artefact; this corrects that.
+
+    References
+    ----------
+    Youden WJ. Cancer. 1950;3(1):32–35.
+    Van Calster B et al. Stat Med. 2019;38(13):2290–2303.
+    """
+    if method == "prevalence":
+        thr = float(y_true.mean())
+    elif method == "youden":
+        fpr, tpr, thresholds = roc_curve(y_true, y_prob)
+        j = tpr - fpr
+        thr = float(thresholds[int(np.argmax(j))])
+        # roc_curve can emit an inf sentinel as the first threshold; guard it.
+        if not np.isfinite(thr):
+            thr = float(y_true.mean())
+    elif method == "f1":
+        grid = np.unique(np.quantile(y_prob, np.linspace(0.01, 0.99, 99)))
+        f1s = [f1_score(y_true, (y_prob >= t).astype(int), zero_division=0) for t in grid]
+        thr = float(grid[int(np.argmax(f1s))])
+    else:
+        raise ValueError(f"unknown threshold method {method!r}")
+
+    result = threshold_metrics(y_true, y_prob, thr)
+    result["method"] = method
+    log.info(
+        "Operating threshold (%s) = %.4f  →  recall=%.3f  precision=%.3f  specificity=%.3f  F1=%.3f",
+        method, result["threshold"], result["recall"], result["precision"],
+        result["specificity"], result["f1"],
+    )
+    return result
+
+
 # ── Report builder ────────────────────────────────────────────────────────────
 
 
@@ -414,6 +490,8 @@ def summarise_baseline_results(
     baseline_oof: dict[str, np.ndarray],
     y_true: np.ndarray,
     xgb_report: EvaluationReport,
+    xgb_label: str = "XGBoost (primary)",
+    primary_baseline: str | None = None,
 ) -> pd.DataFrame:
     """
     Produce a side-by-side comparison table: XGBoost vs. all baseline models.
@@ -437,8 +515,9 @@ def summarise_baseline_results(
         if name not in grp.groups:
             continue
         sub = grp.get_group(name)
+        label = f"{name} (primary)" if name == primary_baseline else name
         rows.append({
-            "Model":          name,
+            "Model":          label,
             "Mean AUROC":     round(sub["auc"].mean(), 3),
             "SD AUROC":       round(sub["auc"].std(), 3),
             "95% CI":         "—",
@@ -448,7 +527,7 @@ def summarise_baseline_results(
 
     d = xgb_report.discrimination
     rows.append({
-        "Model":          "XGBoost (primary)",
+        "Model":          xgb_label,
         "Mean AUROC":     round(d.auroc, 3),
         "SD AUROC":       "—",
         "95% CI":         f"{d.auroc_ci_low:.3f}–{d.auroc_ci_high:.3f}",

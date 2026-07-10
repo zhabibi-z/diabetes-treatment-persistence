@@ -68,7 +68,12 @@ synthea/
 # Allow specific trained models for cloud deployment
 !outputs/models/xgb_discontinuation.pkl
 !outputs/models/xgb_model.ubj
+!outputs/models/logreg_discontinuation.pkl
 
 # Build artifacts
 .claude/
 Rplots.pdf
+
+# AutoGluon model store (large, regenerable via run_autogluon_ceiling.py)
+outputs/autogluon_models/
+catboost_info/
