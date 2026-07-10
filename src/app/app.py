@@ -344,46 +344,47 @@ with tab3:
 # TAB 4 — ML (lightweight inference)
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab4:
-    st.header("Machine Learning — XGBoost + SHAP + UMAP")
+    st.header("Machine Learning — Logistic Regression (primary) + XGBoost / SHAP / UMAP")
     st.markdown(
         "**Outcome:** 1-year treatment discontinuation (binary)  "
-        "**Model:** XGBoost, 5-fold stratified CV, 28 features  \n"
-        "**Leakage correction:** `followup_days` removed from feature set (v2.1). "
-        "Cohort restricted to patients with ≥365-day follow-up so every patient "
-        "had a full observation window for the annual outcome. "
-        "Expected AUROC is now ~0.65–0.78, consistent with published T2DM persistence models "
-        "(Buysman et al. 2015; Pantalone et al. 2020)."
+        "**Primary model:** logistic regression, 28 features; XGBoost retained as a "
+        "sensitivity model (nested CV)  \n"
+        "**Leakage correction:** `followup_days` removed from feature set. Cohort restricted "
+        "to patients with ≥365-day follow-up so every patient had a full observation window. \n"
+        "**Validation:** nested cross-validation (unbiased OOF) with a tuned operating "
+        "threshold (Youden's J) instead of a naive 0.5. Logistic regression is reported as "
+        "primary because XGBoost shows no meaningful lift; an AutoGluon run (test AUROC 0.551) "
+        "confirms no model class does better on this leakage-free synthetic data."
     )
 
     cv_res = load_csv("outputs/tables/ml_metrics.csv")
     if cv_res is not None:
-        st.subheader("5-Fold Cross-Validation Results")
+        st.subheader("Nested Cross-Validation Results")
         st.dataframe(cv_res.style.format(precision=4), use_container_width=True)
-        mean_row = cv_res[cv_res["split"] == "mean"]
-        if not mean_row.empty:
+        # Headline card = the primary (logistic regression) out-of-fold row.
+        primary_row = cv_res[cv_res["model"].astype(str).str.contains("primary", case=False, na=False)]
+        if not primary_row.empty:
+            r = primary_row.iloc[0]
             col1, col2, col3, col4, col5, col6 = st.columns(6)
-            col1.metric("AUROC", f"{float(mean_row['auc'].iloc[0]):.3f}")
+            col1.metric("AUROC (primary)", f"{float(r['auroc']):.3f}")
             col2.metric("95% CI", (
-                f"{float(mean_row['auroc_ci_low'].iloc[0]):.3f}–"
-                f"{float(mean_row['auroc_ci_high'].iloc[0]):.3f}"
-                if "auroc_ci_low" in mean_row.columns else "—"
+                f"{float(r['auroc_ci_low']):.3f}–{float(r['auroc_ci_high']):.3f}"
+                if "auroc_ci_low" in primary_row.columns else "—"
             ))
-            col3.metric("F1", f"{float(mean_row['f1'].iloc[0]):.3f}")
-            col4.metric("Brier", f"{float(mean_row['brier'].iloc[0]):.4f}")
-            col5.metric("ECE", (
-                f"{float(mean_row['ece'].iloc[0]):.4f}"
-                if "ece" in mean_row.columns else "—"
-            ))
-            col6.metric("AUPRC", f"{float(mean_row['auprc'].iloc[0]):.3f}")
+            col3.metric("F1 @ tuned thr", f"{float(r['f1']):.3f}")
+            col4.metric("Brier", f"{float(r['brier']):.4f}")
+            col5.metric("ECE", f"{float(r['ece']):.4f}" if "ece" in primary_row.columns else "—")
+            col6.metric("Threshold", f"{float(r['op_threshold']):.3f}" if "op_threshold" in primary_row.columns else "—")
     else:
         st.info("ML results pending — run `bash scripts/bootstrap.sh`.")
 
     # ── Baseline model comparison ──────────────────────────────────────────────
     st.divider()
-    st.subheader("Model Comparison — XGBoost vs. Baselines")
+    st.subheader("Model Comparison — Primary vs. Baselines")
     st.caption(
-        "XGBoost must outperform logistic regression and majority-class baselines to "
-        "justify its complexity (Steyerberg et al. 2010, Ann Intern Med)."
+        "Model complexity is justified only when it beats logistic regression and majority-class "
+        "baselines (Steyerberg et al. 2010, Ann Intern Med). Here XGBoost shows no meaningful lift "
+        "over logistic regression, so the parsimonious linear model is reported as primary."
     )
     comp = load_csv("outputs/tables/model_comparison.csv")
     if comp is not None:
