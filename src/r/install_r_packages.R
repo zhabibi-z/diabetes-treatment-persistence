@@ -35,10 +35,10 @@ required_packages <- c(
   "DescTools",    # Descriptive statistics utilities
   "optparse",     # Command-line option parsing
   # ── Added for competing risks and calibration ──────────────────────────────
-  "cmprsk",       # Fine-Gray subdistribution hazard model
+  "cmprsk"        # Fine-Gray subdistribution hazard model
                   # Fine JP, Gray RJ. JASA. 1999;94(446):496-509.
-  "pec"           # Brier score and integrated Brier score for survival models
-                  # Gerds TA, Schumacher M. Biom J. 2006;48(6):1029-1040.
+  # NOTE: 'pec' (Brier score for survival) was removed — it is not used by any R script and its
+  # dependency 'rms'/'riskRegression' repeatedly failed to install on the CI mirror, breaking CI.
 )
 
 install_if_missing <- function(pkg) {
