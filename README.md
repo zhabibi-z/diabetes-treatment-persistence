@@ -13,7 +13,7 @@
 
 ---
 
-## Overview
+##Overview
 
 This real-world evidence (RWE) study applies pharmacoepidemiological methods to characterise comparative treatment persistence across three major antidiabetic drug classes: metformin monotherapy, GLP-1 receptor agonists (semaglutide, dulaglutide, liraglutide), and SGLT-2 inhibitors (empagliflozin, dapagliflozin, canagliflozin). The primary endpoint is time to treatment discontinuation (TTD) defined by a 90-day grace period (Lim 2025). Comorbidity burden — measured across 15 SNOMED-mapped conditions — is investigated as a predictor and time-varying modifier of persistence.
 
